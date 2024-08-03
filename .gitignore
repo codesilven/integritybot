@@ -1,0 +1,4 @@
+token.txt
+cogs/__pycache__
+cogs/assets/**.**
+cogs/db/**.**
