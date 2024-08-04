@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import copy
+import json
 import random
 from discord.ext import commands
 import discord
 import asyncio
-from .utils import song_stats, music_path, get_audio, parse_list, top_play, Timer
+import os
+from .utils import song_stats, music_path, get_audio, parse_list, top_play, Timer, is_compiled, rel_path
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -16,7 +18,10 @@ class Music(commands.Cog):
         self.ctx = None
         self.current = None
         self.timer = Timer()
-
+        os.makedirs(rel_path("db"),exist_ok=True)
+        if not os.path.isfile(rel_path(f"db{os.sep}music_stats.json")):
+            with open(rel_path(f"db{os.sep}music_stats.json"), "x", encoding="utf-8") as file:
+                json.dump({"data":[]}, file, indent=2, ensure_ascii=False)
         
     async def play_song(self,ctx):
         song = ""
@@ -34,6 +39,13 @@ class Music(commands.Cog):
         file = music_path(song) + ".mp3"
         await ctx.send("Playing "+song)
         print(file)
+
+        if(is_compiled()):
+            opus = rel_path("opus.dll")
+            print(opus)
+            discord.opus.load_opus(opus)
+            if not discord.opus.is_loaded():
+                print("Opus not loaded! Provide opus.dll (DO NOT download this file from a sketchy site).\nMusic will not play without it.")
 
         source = discord.PCMVolumeTransformer(
             discord.FFmpegPCMAudio(file, options="-b:a 128k"),
@@ -72,7 +84,7 @@ class Music(commands.Cog):
                 self.voice_channel = await ctx.author.voice.channel.connect()
             else:
                 await ctx.send("You are not in a voice channel! <:madge:1009748173717250098>")
-                raise commands.CommandError("Author not connected to a voice channel.")
+                #raise commands.CommandError("Author not connected to a voice channel.")
         elif ctx.voice_client.is_playing():
             pass
 

@@ -1,6 +1,8 @@
+import configparser
 import json
 import os
 import re
+import sys
 from youtubesearchpython import VideosSearch
 from fuzzywuzzy import fuzz
 from pytubefix import YouTube
@@ -11,6 +13,68 @@ from sclib import SoundcloudAPI, Track, Playlist as SCPlaylist
 import validators
 import asyncio
 
+
+
+GLOBAL_CONFIG = None
+
+class Config:
+    def __init__(self, path = ""):
+        raw_dict = None
+        config_object = configparser.ConfigParser()
+        try:
+            with open(path,"r") as file:
+                config_object.read_file(file)
+                output_dict={s:dict(config_object.items(s)) for s in config_object.sections()}
+                raw_dict = output_dict
+        except Exception as e:
+            print(e)
+            if not os.path.isfile(path):
+                with open(path,"x") as file:
+                    std = "[admin]\n"
+                    std += "# get bot token from the developer console\n"
+                    std += "token =\n"
+                    std += "# where music files should be stored. Leave empty for '/music' relative to the install\n"
+                    std += "directory =\n"
+                    std += "# comma delimited ids from discord users who can skip songs and add data\n"
+                    std += "superusers =\n"
+                    std += "[cogs]\n"
+                    std += "music = 1\n"
+                    std += "ascension = 0\n"
+                    file.write(std)
+                with open(path,"r") as file:
+                    config_object.read_file(file)
+                    output_dict={s:dict(config_object.items(s)) for s in config_object.sections()}
+                    raw_dict = output_dict         
+        admin = raw_dict["admin"] 
+        self.token = admin["token"].strip()
+        self.directory = admin["directory"] or f"music"
+        self.superusers = admin["superusers"].split(",")
+
+        cogs = raw_dict["cogs"]
+        self.music_cog = cogs["music"]
+        self.wow_cog = cogs["ascension"]
+
+
+def set_config(path = ""):
+    global GLOBAL_CONFIG
+    GLOBAL_CONFIG = Config(path)
+
+def get_config():
+    global GLOBAL_CONFIG
+    return GLOBAL_CONFIG
+
+
+def is_compiled():
+    return not "python.exe" in sys.executable
+
+def top_path():
+    if (is_compiled()):
+        return os.sep.join(sys.executable.split("\\")[:-1])
+    else:
+        return os.path.dirname(__file__)
+
+def rel_path(p = ""):
+    return top_path() + os.sep + p
 
 api = SoundcloudAPI()
 
@@ -37,7 +101,7 @@ def search_youtube(term):
 def song_stats(song, key = "plays"):
     print(song,key)
     data = None
-    with open(os.path.join(os.path.dirname(__file__),"db/music_stats.json"), encoding="utf-8") as db:
+    with open(rel_path(f"db{os.sep}music_stats.json"), encoding="utf-8") as db:
         data = json.load(db)["data"]
         relevant_song = list(filter(lambda x: x["song"] == song, data))
         if(len(relevant_song) > 0):
@@ -50,11 +114,12 @@ def song_stats(song, key = "plays"):
                 "info": {}
                 }
             data.append(new_song)
-    with open(os.path.join(os.path.dirname(__file__),"db/music_stats.json"), "w", encoding="utf-8") as file:
+    with open(rel_path(f"db{os.sep}music_stats.json"), "w", encoding="utf-8") as file:
         json.dump({"data":data}, file, indent=2, ensure_ascii=False)   
         pass
 
 def music_path(song=""):
+    # load path from CSV or config or something
     return "E:\\ig_music\\" + song
     # E:\ig_music
 
@@ -178,7 +243,7 @@ def get_audio(term, func=None, loop=None):
 
 
 def top_list(key="plays",count=10):
-    with open(os.path.join(os.path.dirname(__file__),"db/music_stats.json"), encoding="utf-8") as db:
+    with open(rel_path(f"db{os.sep}music_stats.json"), encoding="utf-8") as db:
         data = json.load(db)["data"]
         relevant_song = list(sorted(data, key=lambda x: x[key],reverse=True))
         try:

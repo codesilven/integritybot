@@ -9,6 +9,7 @@ import uuid
 import requests
 from .arpen import compare 
 from .crit import compare_crit
+from .utils import rel_path
 
 list_of_people = ["Aurose","Apophysis","Zobimaru","Maeglin","Zouzou","Jimhoten","Giffels","Why","Hairguy","Dvagorine","Syrene","Narsu","Dienstranum",
                   "Fingerbone","Fireqz","Whirlyshots","Stallion","Goggins","Phones","Vasiria","Cruked","Khartoba","Zakm","Ladiev","Lavjuu","Tristen",
@@ -46,18 +47,31 @@ def is_uuid(uuid_to_test, version=4):
 class Help(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        with open(os.path.join(os.path.dirname(__file__),"db/player.json"), encoding="utf-8") as db:
-            data = json.load(db)["data"]
-            for player in data:
-                p_name = player["player"]
-                for msg in player["data"]:
-                    if(not "id" in msg):
-                        msg["id"] = str(uuid.uuid4())
-                    if(not "type" in msg or not "value" in msg):
-                        player["data"].remove(msg)
+        
+        self.db_path = rel_path("db/player.json")
+        os.makedirs(rel_path("db"),exist_ok=True)
+        mode = "r"
+        if not os.path.isfile(self.db_path):
+            mode = "x"
+
+        with open(self.db_path, mode, encoding="utf-8") as db:
+            data = None
+            try:
+                data = json.load(db)["data"]
+            except:
+                pass
+
+            if(data):
+                for player in data:
+                    p_name = player["player"]
+                    for msg in player["data"]:
+                        if(not "id" in msg):
+                            msg["id"] = str(uuid.uuid4())
+                        if(not "type" in msg or not "value" in msg):
+                            player["data"].remove(msg)
             
-            self.data = data
-        with open(os.path.join(os.path.dirname(__file__),"db/player.json"), "w", encoding="utf-8") as file:
+            self.data = data or []
+        with open(self.db_path, "w", encoding="utf-8") as file:
             json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)   
         random.seed()
         self.messages = []
@@ -73,7 +87,7 @@ class Help(commands.Cog):
     
     async def send(self,ctx,res):
         if(res["type"] == "file"):
-            with open(os.path.join(os.path.dirname(__file__), res["value"]),"rb") as f:
+            with open(rel_path(res["value"]),"rb") as f:
                 pic = File(f)
                 await ctx.send(file=pic)
         elif(res["type"] == "text"):
@@ -206,12 +220,15 @@ class Help(commands.Cog):
         if(player_to_add and ctx.message.attachments):
             attach = ctx.message.attachments[0]
             res = requests.get(attach.url, stream=True)
+            # create folder if not existing
+            os.makedirs(rel_path("assets"),exist_ok=True)
+
             if(res.status_code == 200):
-                with open(os.path.join(os.path.dirname(__file__),"assets/" + attach.filename),"wb") as file:
+                with open(rel_path("assets" + os.sep + attach.filename),"wb") as file:
                     for chunk in res.iter_content(8192):
                         if chunk:
                             file.write(chunk)
-                attachment = "assets/" + attach.filename
+                attachment = "assets" + os.sep + attach.filename
 
         message = None
         try:
@@ -220,7 +237,7 @@ class Help(commands.Cog):
             pass
 
         if(player_to_add and (message or attachment)):
-            with open(os.path.join(os.path.dirname(__file__),"db/player.json"), encoding="utf-8") as db:
+            with open(self.db_path, encoding="utf-8") as db:
                 data = json.load(db)["data"]
                 relevant_player = list(filter(lambda x: x["player"] == player_to_add, data))
                 if(len(relevant_player) > 0):
@@ -241,7 +258,7 @@ class Help(commands.Cog):
                     data.append(player)
 
                 self.data = data
-            with open(os.path.join(os.path.dirname(__file__),"db/player.json"), "w", encoding="utf-8") as file:
+            with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)       
 
     @commands.command(pass_context=True)
@@ -259,13 +276,13 @@ class Help(commands.Cog):
             pass
 
         if(player_to_remove and id and is_uuid(id)):
-            with open(os.path.join(os.path.dirname(__file__),"db/player.json"), encoding="utf-8") as db:
+            with open(self.db_path, encoding="utf-8") as db:
                 data = json.load(db)["data"]
                 relevant_player = list(filter(lambda x: x["player"] == player_to_remove, data))
                 if(relevant_player and len(relevant_player) > 0):
                     relevant_player[0]["data"] = list(filter(lambda x: x["id"] != id, relevant_player[0]["data"]))
                     self.data = data
-            with open(os.path.join(os.path.dirname(__file__),"db/player.json"), "w", encoding="utf-8") as file:
+            with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False) 
 
 
