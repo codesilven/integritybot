@@ -35,7 +35,7 @@ class Music(commands.Cog):
             self.playing = False
             self.timer.start(300,self.leave,ctx)
             return     
-        
+
         file = music_path(song) + ".mp3"
         await ctx.send("Playing "+song)
         print(file)
@@ -84,9 +84,11 @@ class Music(commands.Cog):
                 self.voice_channel = await ctx.author.voice.channel.connect()
             else:
                 await ctx.send("You are not in a voice channel! <:madge:1009748173717250098>")
+                return False
                 #raise commands.CommandError("Author not connected to a voice channel.")
         elif ctx.voice_client.is_playing():
             pass
+        return True
 
     async def leave(self, ctx):
         # if await self.user_is_connected(ctx) and self.voice_channel.is_connected():
@@ -120,6 +122,10 @@ class Music(commands.Cog):
 
     @commands.command(pass_context=True)
     async def play(self,ctx,*args):
+        can_play = await self.ensure_voice(ctx)
+        if(not can_play):
+            return
+
         if(len(args) == 0):
             await ctx.send("Link <a:a52updates:1122163070815449160>")
             return
@@ -127,7 +133,6 @@ class Music(commands.Cog):
 
         if(args[0] == "toplist"):
             #play toplist
-
             pl = top_play()
             random.shuffle(pl)
             for song in pl:
@@ -144,11 +149,6 @@ class Music(commands.Cog):
                 self.playing = True
                 await self.play_song(ctx)  
             return
-
-        print(args)
-        # res = get_audio(args[0],self.add_result,self.bot.loop)
-
-        
 
         try:
             res = get_audio(" ".join(args),self.add_result,self.bot.loop)

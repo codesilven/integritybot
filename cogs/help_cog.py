@@ -9,7 +9,7 @@ import uuid
 import requests
 from .arpen import compare 
 from .crit import compare_crit
-from .utils import rel_path
+from .utils import rel_path, get_config
 
 list_of_people = ["Aurose","Apophysis","Zobimaru","Maeglin","Zouzou","Jimhoten","Giffels","Why","Hairguy","Dvagorine","Syrene","Narsu","Dienstranum",
                   "Fingerbone","Fireqz","Whirlyshots","Stallion","Goggins","Phones","Vasiria","Cruked","Khartoba","Zakm","Ladiev","Lavjuu","Tristen",
@@ -23,7 +23,7 @@ elv_messages = [
     "ElvUI is a lot like math - I hate math","My gf said she upgraded her UI to ElvUI. I said I upgraded to a new gf."
 ]
 
-my_id = 167399259795095552
+
 
 
 def mask(name):
@@ -47,6 +47,7 @@ def is_uuid(uuid_to_test, version=4):
 class Help(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.superusers = get_config().superusers
         
         self.db_path = rel_path("db/player.json")
         os.makedirs(rel_path("db"),exist_ok=True)
@@ -97,9 +98,9 @@ class Help(commands.Cog):
 
     @commands.command(pass_context=True)
     async def last_message(self,ctx, *args):
-        if(ctx.message.author.id != 167399259795095552):
+        if(not str(ctx.message.author.id) in self.superusers):
             await ctx.send("Not allowed :no_entry:")
-            return   
+            return
         if(len(self.messages) == 0):
             await ctx.send("No messages sent so far!")
             return
@@ -206,7 +207,7 @@ class Help(commands.Cog):
 
     @commands.command(pass_context=True)
     async def add(self,ctx, *args):
-        if(ctx.message.author.id != 167399259795095552):
+        if(not str(ctx.message.author.id) in self.superusers):
             await ctx.send("Not allowed :no_entry:")
             return
         
@@ -263,8 +264,8 @@ class Help(commands.Cog):
 
     @commands.command(pass_context=True)
     async def delete(self,ctx,*args):
-        if(ctx.message.author.id != 167399259795095552):
-            await ctx.send("No entry :no_entry:")
+        if(not str(ctx.message.author.id) in self.superusers):
+            await ctx.send("Not allowed :no_entry:")
             return
         # first is name
         player_to_remove = None

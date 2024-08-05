@@ -27,8 +27,12 @@ except Exception as e:
 
 async def start_bot():
     bot = commands.Bot(command_prefix=',', intents=discord.Intents.all(), help_command=None)
-    await bot.load_extension('cogs.music_cog')
-    await bot.load_extension('cogs.help_cog')
+
+    cfg = get_config()
+    if(str(cfg.music_cog )== "1"):
+        await bot.load_extension('cogs.music_cog')
+    if(str(cfg.wow_cog )== "1"):
+        await bot.load_extension('cogs.help_cog')
     return bot
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import configparser
 import json
 import os
+import pathlib
 import re
 import sys
 from youtubesearchpython import VideosSearch
@@ -47,7 +48,7 @@ class Config:
                     raw_dict = output_dict         
         admin = raw_dict["admin"] 
         self.token = admin["token"].strip()
-        self.directory = admin["directory"] or f"music"
+        self.directory = (admin["directory"] or f"music").strip()
         self.superusers = admin["superusers"].split(",")
 
         cogs = raw_dict["cogs"]
@@ -120,8 +121,8 @@ def song_stats(song, key = "plays"):
 
 def music_path(song=""):
     # load path from CSV or config or something
-    return "E:\\ig_music\\" + song
-    # E:\ig_music
+    path = get_config().directory
+    return path + os.sep + song
 
 
 
@@ -177,7 +178,9 @@ def download(url, func=None, loop=None):
                 #     print("fail")
                 #     pass
         else:
-            yt = YouTube(url, on_progress_callback = on_progress, use_oauth=True, allow_oauth_cache=True)
+            if is_compiled() and not os.path.exists(rel_path('cache')):
+                os.makedirs(rel_path('cache'))
+            yt = YouTube(url, on_progress_callback = on_progress, use_oauth=True, allow_oauth_cache=True, token_file=rel_path(f"cache{os.sep}tokens.json") if is_compiled() else None)
             print(yt.title)
             if not os.path.isfile(music_path(yt.title) + ".mp3"):
                 ys = None
