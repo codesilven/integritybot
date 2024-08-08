@@ -28,9 +28,11 @@
 
 6. Run the `main.py` file using Python3.
 
-### Implementing new modules into the bot:
+### YouTube restrictions
 
-The bot modules (officially called "cogs") are stored in the `cogs` folder. If you want to make new ones, add them to that folder and remember to load them from the `main.py` file by adding `await bot.load_extension("cogs.<cog_name>")` in the `start_bot` function.
+1. You can authenticate to allow you to watch age-restricted videos and others that require a login. If this is not something you want, you can disable it in the config.
+
+2. When a video is queued, you will be promted with a code in the console. Go to google.com/device and enter the code, select a YouTube account (not a google account, even if it's your primary YouTube!), then press Enter in the console.
 
 ### Credits:
 

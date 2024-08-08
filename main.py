@@ -29,10 +29,15 @@ async def start_bot():
     bot = commands.Bot(command_prefix=get_config().prefix or ",", intents=discord.Intents.all(), help_command=None)
 
     cfg = get_config()
-    if(str(cfg.music_cog )== "1"):
+    if(cfg.help_cog):
+        print("Loaded help cog")
+        await bot.load_extension('cogs.help_cog')   
+    if(cfg.music_cog):
+        print("Loaded music cog")
         await bot.load_extension('cogs.music_cog')
-    if(str(cfg.wow_cog )== "1"):
-        await bot.load_extension('cogs.help_cog')
+    if(cfg.wow_cog ):
+        print("Loaded wow cog")
+        await bot.load_extension('cogs.wow_cog')
     return bot
 
 if __name__ == '__main__':

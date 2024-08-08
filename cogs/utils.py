@@ -35,13 +35,16 @@ class Config:
                     std += "token =\n"
                     std += "# what to prefix commands with. Leave empty for ',' (a comma)\n"
                     std += "prefix =\n"
-                    std += "# where music files should be stored. Leave empty for '/music' relative to the install.\n"
+                    std += "# if YouTube authentication should be attempted. 1 for yes, 0 for no. Refer to readme for more information\n"
+                    std += "auth = 1\n"
+                    std += "# where music files should be stored. Leave empty for '/music' relative to the install\n"
                     std += "directory =\n"
                     std += "# comma delimited ids from discord users who can skip songs and add data\n"
                     std += "superusers =\n"
                     std += "[cogs]\n"
+                    std += "help = 1\n"
                     std += "music = 1\n"
-                    std += "ascension = 0\n"
+                    std += "wow = 0\n"
                     file.write(std)
                 with open(path,"r") as file:
                     config_object.read_file(file)
@@ -49,8 +52,14 @@ class Config:
                     raw_dict = output_dict         
         admin = raw_dict["admin"] 
         self.token = admin["token"].strip()
-        self.directory = clean_path(admin["directory"] or f"music")
         self.prefix = ","
+        self.auth = False
+        try:
+            self.auth = (admin["auth"].strip() == "1")
+        except:
+            pass
+
+        self.directory = clean_path(admin["directory"] or f"music")
         try:
             self.prefix = admin["prefix"].strip()
         except:
@@ -58,8 +67,17 @@ class Config:
         self.superusers = admin["superusers"].split(",")
 
         cogs = raw_dict["cogs"]
-        self.music_cog = cogs["music"]
-        self.wow_cog = cogs["ascension"]
+        self.help_cog = False
+        self.music_cog = False
+        self.wow_cog = False
+
+        for cog in ["help","music","wow"]:
+            try:
+                value = int(cogs[cog].strip())
+                setattr(self,cog+"_cog", int(cogs[cog].strip()) == 1)
+            except Exception as e:
+                print(f"Cog setting '{cog}' of value '{cogs[cog]}' invalid")
+                print("Exception was ",e)
 
 
 def set_config(path = ""):
@@ -178,21 +196,12 @@ def download(url, func=None, loop=None):
 
             if(func != None and loop!= None and len(vids) > 0):
                 print(f"running async on {len(vids)} videos")
-
                 loop.create_task(async_download(vids,func))
-                #asyncio.run(async_download(vids,func))
-                # coro = async_test(vids,func)
-                # fut = asyncio.run_coroutine_threadsafe(coro, loop)
-                # try:
-                #     print("fut.result")
-                #     fut.result(10)
-                # except:
-                #     print("fail")
-                #     pass
         else:
             if is_compiled() and not os.path.exists(rel_path('cache')):
                 os.makedirs(rel_path('cache'))
-            yt = YouTube(url, on_progress_callback = on_progress, use_oauth=True, allow_oauth_cache=True, token_file=rel_path(f"cache{os.sep}tokens.json") if is_compiled() else None)
+            use_auth = get_config().auth
+            yt = YouTube(url, on_progress_callback = on_progress, use_oauth=use_auth, allow_oauth_cache=use_auth, token_file=rel_path(f"cache{os.sep}tokens.json") if (is_compiled() and use_auth) else None)
             print(yt.title)
             if not os.path.isfile(music_path(yt.title) + ".mp3"):
                 ys = None
