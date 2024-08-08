@@ -1,6 +1,6 @@
 # IntegrityBot
 
-## <b>A Discord music bot that can play songs from Youtube and Soundcloud</b>
+## <b>Yet Another Discord music bot that can play songs from Youtube and Soundcloud</b>
 
 ### Create bot token:
 

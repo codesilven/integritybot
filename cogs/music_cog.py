@@ -247,15 +247,21 @@ class Music(commands.Cog):
     @commands.command(pass_context=True)
     async def queue(self, ctx, *args):
         cloned = copy.deepcopy(self.queue)
-        cloned.insert(0,self.current)
+
+        if(self.current):
+            cloned.insert(0,self.current)
         msg = ""
         count = 1
+
         for song in cloned:
             msg += f'{count}. {song}'
             if(count <= len(cloned)):
                 msg += "\n"
             count += 1
-        await ctx.send(f'```{msg}```')
+        if(len(msg) > 0):
+            await ctx.send(f'```{msg}```')
+        else:
+            await ctx.send("No songs queued!")
 
     @commands.command(pass_context=True)
     async def toplist(self, ctx, *args):
