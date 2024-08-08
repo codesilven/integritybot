@@ -1,7 +1,6 @@
 import configparser
 import json
 import os
-import pathlib
 import re
 import sys
 from youtubesearchpython import VideosSearch
@@ -10,7 +9,7 @@ from pytubefix import YouTube
 from pytubefix import Playlist
 from pytubefix.cli import on_progress
 import os.path
-from sclib import SoundcloudAPI, Track, Playlist as SCPlaylist
+from sclib import SoundcloudAPI
 import validators
 import asyncio
 
@@ -34,7 +33,9 @@ class Config:
                     std = "[admin]\n"
                     std += "# get bot token from the developer console\n"
                     std += "token =\n"
-                    std += "# where music files should be stored. Leave empty for '/music' relative to the install\n"
+                    std += "# what to prefix commands with. Leave empty for ',' (a comma)\n"
+                    std += "prefix =\n"
+                    std += "# where music files should be stored. Leave empty for '/music' relative to the install.\n"
                     std += "directory =\n"
                     std += "# comma delimited ids from discord users who can skip songs and add data\n"
                     std += "superusers =\n"
@@ -48,7 +49,12 @@ class Config:
                     raw_dict = output_dict         
         admin = raw_dict["admin"] 
         self.token = admin["token"].strip()
-        self.directory = (admin["directory"] or f"music").strip()
+        self.directory = clean_path(admin["directory"] or f"music")
+        self.prefix = ","
+        try:
+            self.prefix = admin["prefix"].strip()
+        except:
+            pass
         self.superusers = admin["superusers"].split(",")
 
         cogs = raw_dict["cogs"]
@@ -67,6 +73,12 @@ def get_config():
 
 def is_compiled():
     return not "python.exe" in sys.executable
+
+def clean_path(path):
+    normalized_path = os.path.normpath(path)
+    cleaned_path = normalized_path.strip(os.path.sep)
+    
+    return cleaned_path
 
 def top_path():
     if (is_compiled()):

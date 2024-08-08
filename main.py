@@ -26,7 +26,7 @@ except Exception as e:
 
 
 async def start_bot():
-    bot = commands.Bot(command_prefix=',', intents=discord.Intents.all(), help_command=None)
+    bot = commands.Bot(command_prefix=get_config().prefix or ",", intents=discord.Intents.all(), help_command=None)
 
     cfg = get_config()
     if(str(cfg.music_cog )== "1"):

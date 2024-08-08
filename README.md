@@ -22,15 +22,11 @@
 
 3. Install requirements with pip.
 
-4. Patch cipher.py (https://github.com/pytube/pytube/issues/1954#issuecomment-2218287594)
+4. Open the `config.ini` file and insert the token that you were given in step 4 of "Create bot token", then save.
 
-5. Open the `token.txt` file and replace the content with the token that you were given in step 4 of "Create bot token", then save.
+5. Make additional modifications to the `config.ini`as appropriate. If the file doesn't exist, run the program to create it.
 
 6. Run the `main.py` file using Python3.
-
-7. Enjoy!
-
-P.S.: the current prefix for bot commands is `,`. To change it, open `main.py` and edit `command_prefix=','` to something else.
 
 ### Implementing new modules into the bot:
 

@@ -226,7 +226,7 @@ class Music(commands.Cog):
         # if count is 1, we pop current
         # if count is 2 (n+1) we remove index 0 (n-2)
         if(count == 1):
-            msg = "```You better not have popped gachi <:fatmald:677160470875996171>```"
+            msg = "You better not have popped gachi <:fatmald:677160470875996171>"
             await ctx.send(msg)
             self.voice_channel.stop()
             song_stats(self.current + ".mp3","skipped")
@@ -240,7 +240,7 @@ class Music(commands.Cog):
         if(skipped == None):
             return
         song_stats(skipped + ".mp3","skipped")
-        msg = "```You better not have popped gachi <:fatmald:677160470875996171>```"
+        msg = "You better not have popped gachi <:fatmald:677160470875996171>"
         await ctx.send(msg)
 
 
