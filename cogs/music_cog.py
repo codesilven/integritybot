@@ -34,7 +34,7 @@ class Music(commands.Cog):
             self.current = None
             self.playing = False
             self.timer.start(300,self.leave,ctx)
-            return     
+            return
 
         file = music_path(song) + ".mp3"
         await ctx.send("Playing "+song)
@@ -56,7 +56,6 @@ class Music(commands.Cog):
         )
         
         song_stats(song + ".mp3")
-
 
         self.current = self.queue.pop(0)
         self.playing = True
@@ -283,7 +282,3 @@ class Music(commands.Cog):
 async def setup(bot):
     await bot.add_cog(Music(bot))
 
-
-
-# download("https://www.youtube.com/watch?v=rvYZRskNV3w")
-# download("https://www.youtube.com/watch?v=pJznVfA3q2Q&list=PLAkz6PS2xc9Q2_Xkchhb5dauReP4Mp9-7")
