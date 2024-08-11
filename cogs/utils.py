@@ -269,15 +269,15 @@ def get_audio(term, func=None, loop=None):
 def top_list(key="plays",count=10):
     with open(rel_path(f"db{os.sep}music_stats.json"), encoding="utf-8") as db:
         data = json.load(db)["data"]
-        relevant_song = list(sorted(data, key=lambda x: x[key],reverse=True))
+        relevant_song = list(sorted(data, key=lambda x: x[key] - (x["skipped"] if key=="plays" else 0),reverse=True))
         try:
             return relevant_song[:count]
         except:
             print("lmao error")
             return []
         
-def top_play():
-    res = top_list(key="plays",count=50)
+def top_play(song_count=50):
+    res = top_list(key="plays",count=song_count)
     tl = [x["song"][:-4] for x in res]
     return tl
 

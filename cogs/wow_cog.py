@@ -129,7 +129,7 @@ class WoW(commands.Cog):
 
         msg += "Therefore, unless your total power is increased by more than 1% (for example from 3000 spell power to 3045), it will NEVER be better than 1% dmg.\n"
         if(not verbose):
-            msg += "TL;DR you need ~1.8% increase in SP or ~1.6% AP to gain 1% dmg. The relative % goes down and the absolute number (ie 35 -> 50) goes up as you gain those stats."
+            msg += "TL;DR you need ~1.8% increase in SP or ~1.6% AP to gain 1% dmg. The relative % goes down and the absolute number (ie 35 -> 50) goes up as you gain those stats.\n"
             msg += "Not deep enough? Add v or verbose after ,power to get a further explanation."
 
         msg += "```"
@@ -165,12 +165,13 @@ class WoW(commands.Cog):
                 verbose = True
         
         msg = "```Critical strike chance gives a chance to do 200% damage with melee and ranged abilities or 175% damage with spells.\n"
-        msg += "These values can further be increase by agility main stat allocation, Poleaxe Specialization, Impale, or spell crit damage talent capstones like Shadow Power."
-        msg += "This makes critical strike an output stat, in the same vein as attack power or haste. However, unlike attack power, critical strike damage is also a mechnical stat for specs like Hot Hands."
-        msg += "All abilities have a base damage 'B', a coefficient 'c', and the attack/spell power 'P'. Therefore ability damage can be expressed as B + P*c.\n"
+        msg += "These values can further be increase by agility main stat allocation, Poleaxe Specialization, Impale, or spell crit damage talent capstones like Shadow Power. "
+        msg += "This makes critical strike an output stat, in the same vein as attack power or haste. However, unlike attack power, critical strike chance is also a mechanical stat for specs like Hot Hands, Low Tide or Primordial Fury.\n"
+        msg += "If you're interested in calculating how much damage you will have or gain given a certain amount of critical chance and/or critical damage modifiers, use ,crit_calc [oldChance%] [newChance%] [%coldCritDmg] [%newCritDmg].\n"
+        msg += "Since only the first 1% critical gives 1% damage at 200% critical strike damage, this means taking 1% damage talents almost always wins - even at 350% critical damage, you 'only' need 60% crit for 1% damage to become equal to a further 1%.\n"
 
         if(not verbose):
-            msg += "TL;DR the 0->1% crit is 1% damage and the 99%->100% is  ."
+            msg += "TL;DR the 0->1% crit is 1% damage and the 99%->100% is 0.5% (or 0.75%/0.43% for non-modded spells). Unless you play Hot Hands or another spec that needs to crit for its rotation, don't stack crit ever.\n"
             msg += "Not deep enough? Add v or verbose after ,power to get a further explanation."
 
         msg += "```"
@@ -179,13 +180,21 @@ class WoW(commands.Cog):
             return
 
         if(verbose):
-            msg = "```The exact percentage of power increase needed depends on which ability in question. So let's provide examples:\n"
+            msg = "```There are exceptions to this rule though - the most common one being Hot Hands or similar specs:\n"
+            msg += "Critically striking is not only 280-430% damage, but also is 50% of making your next spell essentially do double damage and cast twice as fast, while reducing cooldown of Combustion - "
+            msg += "even going from 99% to 100% is, although hard to accurately model, somewhere around 1.88% damage, which also show why critical strike is so valuable for the spec.\n"
+            msg += "For an even more obscene example, Primordial Fury adds around 10k damage to every critical strike, meaning a Flame Shock that would normally do an initial crit for 4k now effectively critically strikes for 18k, or "
+            msg += "effectively 900% damage (!).\n"
+            msg += "The same is also true for healing - despite most heals, such as Healing Wave, only critically striking for 150% healing, the utility of triggering Ancestral Awakening probably outweighs 1% healing is a majority of cases, "
+            msg += "not to mention that Low Tide and Transcendental Embrace benefits from critically healing.\n"
+            msg += "There's also talents like Flurry or Nature's Grace, which do not scale linearly with critical strike chance but benefit from it at some level. Furthermore, rage generation is affected by damage done, which means rage gen "
+            msg += "output follows roughly the same rules as damage output does."
             msg += "```"
             await ctx.send(msg)
 
-            msg = "```The astute among you might have noticed the lack of Ascension's wonderful hybrid scaling in the formulas. There's two parts to that - the first is that for non-hybrids, where your lesser power remains more or less static, "
-            msg += "```"
-            await ctx.send(msg)
+            # msg = "```The astute among you might have noticed the lack of Ascension's wonderful hybrid scaling in the formulas. There's two parts to that - the first is that for non-hybrids, where your lesser power remains more or less static, "
+            # msg += "```"
+            # await ctx.send(msg)
 
     @commands.command(pass_context=True)
     async def add(self,ctx, *args):

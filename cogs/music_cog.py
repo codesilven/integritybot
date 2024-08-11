@@ -131,8 +131,14 @@ class Music(commands.Cog):
         res = []
 
         if(args[0] == "toplist"):
+            count = 50
+            try:
+                count = int(args[1])
+                assert count > 0
+            except:
+                pass
             #play toplist
-            pl = top_play()
+            pl = top_play(count)
             random.shuffle(pl)
             for song in pl:
                 try:
@@ -142,7 +148,7 @@ class Music(commands.Cog):
                             self.queue.append(s)
                 except:
                     print("Skipped "+song)
-            await ctx.send(f'Queued top 50 songs in random order <:kekpipe:1009720099692888114>')
+            await ctx.send(f'Queued top {count} songs in random order <:kekpipe:1009720099692888114>')
             self.ctx = ctx
             if(not self.playing):
                 self.playing = True
@@ -275,7 +281,10 @@ class Music(commands.Cog):
 
     @commands.command(pass_context=True)
     async def stinkers(self, ctx, *args):
-        await ctx.send(f'```{parse_list(args, key="skipped")}```')        
+        top = parse_list(args, key="skipped")
+        for chunk in top:
+            await ctx.send(f'```{chunk}```')
+     
         
 
 
