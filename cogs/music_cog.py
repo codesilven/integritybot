@@ -42,7 +42,6 @@ class Music(commands.Cog):
 
         if(is_compiled()):
             opus = rel_path("opus.dll")
-            print(opus)
             discord.opus.load_opus(opus)
             if not discord.opus.is_loaded():
                 print("Opus not loaded! Provide opus.dll (DO NOT download this file from a sketchy site).\nMusic will not play without it.")
