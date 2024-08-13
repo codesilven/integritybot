@@ -251,7 +251,9 @@ class WoW(commands.Cog):
 
                 self.data = data
             with open(self.db_path, "w", encoding="utf-8") as file:
-                json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)       
+                json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)      
+
+        await ctx.send(f"Added {"file" if attachment else message} for {player_to_add}") 
 
     @commands.command(pass_context=True)
     async def delete(self,ctx,*args):

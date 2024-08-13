@@ -157,8 +157,9 @@ class Music(commands.Cog):
 
         try:
             res = get_audio(" ".join(args),self.add_result,self.bot.loop)
-        except:
+        except Exception as e:
             print("error")
+            print(e)
             res = []
         if(not res):
             await ctx.send("Something went wrong, probably a regex/throttling issue <:admiralb:888877774964682772> ")

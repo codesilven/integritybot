@@ -154,7 +154,9 @@ def music_path(song=""):
     path = get_config().directory
     return path + os.sep + song
 
-
+def sanitize_filename(filename):
+    # Replace invalid characters with an underscore
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 
 
@@ -213,8 +215,8 @@ def download(url, func=None, loop=None):
                     pass
                 if(not ys):
                     return []
-                ys.download(mp3=True,output_path=music_path()) # pass the parameter mp3=True to save in .mp3
-            results.append(yt.title)
+                ys.download(mp3=True,output_path=music_path(), filename=sanitize_filename(yt.title)) # pass the parameter mp3=True to save in .mp3
+            results.append(sanitize_filename(yt.title))
     elif("soundcloud.com" in url):
         if("/sets/" in url):
             playlist = api.resolve(url)
