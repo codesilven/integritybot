@@ -9,31 +9,20 @@ import uuid
 import requests
 from .arpen import compare 
 from .crit import compare_crit
-from .utils import rel_path, get_config
-
-list_of_people = ["Aurose","Apophysis","Zobimaru","Maeglin","Zouzou","Jimhoten","Giffels","Why","Hairguy","Dvagorine","Syrene","Narsu","Dienstranum",
-                  "Fingerbone","Fireqz","Whirlyshots","Stallion","Goggins","Phones","Vasiria","Cruked","Khartoba","Zakm","Ladiev","Lavjuu","Tristen",
-                  "Tsufi","Criex","Furre","Leonor","Shiift","Snooz","Peeqz","Tlacaelel","Temptress","Senjougahara","Guanshiyin","Phibbe","Manaaddict",
-                  "Izzyfizzy","Tubbie","Hashkandiqt","Zimber","Yunir","Aryu"]
-elv_messages = [
-    "A great tip for ElvUI users is to uninstall ElvUI.","If you like ElvUI, may I recommed: Nickelback, Bud Light, Crocs, Internet Explorer",
-    "90% of the bottom 1% worst players all use ElvUI.","The 'E' in ElvUI stand for 'extraneous', a word no ElvUI user has ever managed to spell.",
-    "Here's a joke: 'ElvUI'", "You know why do ElvUI users always carry a manual? Because half the time they need a guide just to open their inventory.",
-    "ElvUI: the face of r/wowuigore","Use ElvUI, the UI most war criminals use.","ElvUI more like BadUI amirite","Roses are red, violets are blue, your gf said goodbye, because you use ElvUI",
-    "ElvUI is a lot like math - I hate math","My gf said she upgraded her UI to ElvUI. I said I upgraded to a new gf."
-]
+from .utils import rel_path, get_config, Timer, time_until_raid
 
 
 
 
-def mask(name):
-    if name == "surely":
-        return "sorely"
-    if name == "raelvion":
-        return "rael"
-    if name == "fujoshi":
-        return "aramis"
-    return name
+def mask(name,source):
+    try:
+        if(name in source):
+            return(source[name])
+        return name
+    except Exception as e:
+        print(e)
+        return name
+
 
 def is_uuid(uuid_to_test, version=4):
     try:
@@ -48,7 +37,8 @@ class WoW(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.superusers = get_config().superusers
-        
+
+        #create player.json
         self.db_path = rel_path("db/player.json")
         os.makedirs(rel_path("db"),exist_ok=True)
         mode = "r"
@@ -74,11 +64,89 @@ class WoW(commands.Cog):
             self.data = data or []
         with open(self.db_path, "w", encoding="utf-8") as file:
             json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)   
+
+        #seed and prepare message log
         random.seed()
         self.messages = []
 
+        #create opts.json
+        self.opt_path = rel_path("db/opts.json")
+        mode = "r"
+        if not os.path.isfile(self.opt_path):
+            mode = "x"
+
+        with open(self.opt_path, mode, encoding="utf-8") as db:
+            data = None
+            try:
+                data = json.load(db)["data"]
+            except:
+                pass
+            self.opts = data or {
+                "raid_channel_id": "",
+                "raid_role_id": "",
+                "elv_messages": [],
+                "list_of_people": [],
+                "mask": []
+            }
+        with open(self.opt_path, "w", encoding="utf-8") as file:
+            json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
+
+
+        #start timer
+
+        self.raid_days = [1,3]
+        self.raid_hour = 19
+        self.raid_min = 0
+
+        lapse = time_until_raid(self.raid_days,self.raid_hour,self.raid_min)
+        self.timer = Timer()
+        self.timer.start(lapse, self.raid_message)
+
+    async def raid_message(self):
+        if(not "raid_channel_id" in self.opts):
+            print("Error: no raid channel id.")
+            return
+        channel = self.bot.get_channel(self.opts["raid_channel_id"])
+        if(not channel):
+            print("Error: incorrect id to channel match.")
+            return
+
+        msg = "<a:gachihyper:1267510456571134054>".join(list("You know what day it is? It is RAID DAY".replace(" ","").upper()))
+
+        if(not "raid_role_id" in self.opts):
+            print("Error: no role id to tag! Sending message without tag.")
+        else:
+            msg += f"\n<@&{self.opts["raid_role_id"]}>"
+        await channel.send(msg)
+        lapse = time_until_raid(self.raid_days,self.raid_hour,self.raid_min)
+        self.timer.start(lapse, self.raid_message)
+
+
+    @commands.command(pass_context=True)
+    async def set_raid_channel(self,ctx):
+        print(ctx.channel.id)
+        self.opts["raid_channel_id"] = ctx.channel.id
+        with open(self.opt_path, "w", encoding="utf-8") as file:
+            json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
+        await ctx.send(f"Set raid channel to {ctx.channel} (id {ctx.channel.id})")
         
-    
+    @commands.command(pass_context=True)
+    async def set_raid_role(self,ctx,*args):
+        id = None
+        if(args and args[0] and args[0].startswith("<@&")):
+            id = args[0][3:-1]
+        
+        if( not id ):
+            await ctx.send(f"Invalid role or call. Use '{get_config().prefix}set_raid_role @role' to enter a role.")
+            return
+        
+        self.opts["raid_role_id"] = id
+        with open(self.opt_path, "w", encoding="utf-8") as file:
+            json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
+
+        await ctx.send("Successfully set role to tag <:pingsock:705824142154268792>.")
+        
+
     def msg_by_id(self,id):
         all_msg = list(map(lambda x: x["data"], self.data))
         msg = list(filter(lambda x: x["id"] == id, [item for sub_list in all_msg for item in sub_list]))
@@ -98,6 +166,7 @@ class WoW(commands.Cog):
 
     @commands.command(pass_context=True)
     async def last_message(self,ctx, *args):
+    
         if(not str(ctx.message.author.id) in self.superusers):
             await ctx.send("Not allowed :no_entry:")
             return
@@ -205,6 +274,7 @@ class WoW(commands.Cog):
         player_to_add = None
         try:
             player_to_add = str(args[0]).lower()
+            player_to_add = mask(player_to_add,self.opts["mask"])
         except:
             pass
 
@@ -280,11 +350,10 @@ class WoW(commands.Cog):
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False) 
 
 
-
     @commands.command(pass_context=True)
     async def player(self, ctx, arg = None):
         if not arg or not isinstance(arg, str):
-            await ctx.send("You didn't provide a player name you absolute donkey (or Aramis didn't implement it yet <:kekw:677506629910134815>)")
+            await ctx.send("You didn't provide a player name you absolute donkey (or it's not implemented yet <:kekw:677506629910134815>)")
             return
         
         if(is_uuid(arg)):
@@ -296,10 +365,9 @@ class WoW(commands.Cog):
                 await ctx.send("You provided a UUID, but the UUID doesn't correspond to any message <:admiralb:888877774964682772>")
                 return
 
-            
         res = None
         try:
-            name = mask(arg.lower())
+            name = mask(arg.lower(),self.opts["mask"])
             res = random.choice(list(filter(lambda x: x["player"] == name, self.data))[0]["data"])
         except:
             pass
@@ -308,17 +376,18 @@ class WoW(commands.Cog):
             await self.send(ctx,res)
             return
         
-        await ctx.send("You didn't provide a player name you absolute donkey (or Aramis didn't implement it yet <:kekw:677506629910134815>)")
+        await ctx.send("You didn't provide a player name you absolute donkey (or it's not implemented yet <:kekw:677506629910134815>)")
         return
 
     @commands.command(pass_context=True)
     async def peperain(self, ctx):
-        list_of_people.sort()
-        await ctx.send("<a:PepeRain:1260290816874909797>".join(list_of_people) + "<a:PepeRain:1260290816874909797>")
+        # TODO - allow adding to peperain
+        self.opts["list_of_people"].sort()
+        await ctx.send("<a:PepeRain:1260290816874909797>".join(self.opts["list_of_people"]) + "<a:PepeRain:1260290816874909797>")
 
     @commands.command(pass_context=True)
     async def elvui(self, ctx):
-        await ctx.send(random.choice(elv_messages))
+        await ctx.send(random.choice(self.opts["elv_messages"]))
 
     @commands.command(pass_context=True)
     async def arpen_calc(self, ctx, *args):

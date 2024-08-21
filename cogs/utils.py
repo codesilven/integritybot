@@ -12,7 +12,7 @@ import os.path
 from sclib import SoundcloudAPI
 import validators
 import asyncio
-
+from datetime import datetime, time
 
 
 GLOBAL_CONFIG = None
@@ -39,7 +39,7 @@ class Config:
                     std += "auth = 1\n"
                     std += "# where music files should be stored. Leave empty for '/music' relative to the install\n"
                     std += "directory =\n"
-                    std += "# comma delimited ids from discord users who can skip songs and add data\n"
+                    std += "# comma delimited ids from discord users who can add data\n"
                     std += "superusers =\n"
                     std += "[cogs]\n"
                     std += "help = 1\n"
@@ -61,7 +61,9 @@ class Config:
 
         self.directory = clean_path(admin["directory"] or f"music")
         try:
-            self.prefix = admin["prefix"].strip()
+            pfx = admin["prefix"].strip()
+            assert len(pfx) > 0
+            self.prefix = pfx
         except:
             pass
         self.superusers = admin["superusers"].split(",")
@@ -91,7 +93,6 @@ def get_config():
 
 def is_compiled():
     return not "python.exe" in sys.executable
-
 def clean_path(path):
     normalized_path = os.path.normpath(path)
     cleaned_path = normalized_path.strip(os.path.sep)
@@ -106,6 +107,8 @@ def top_path():
 
 def rel_path(p = ""):
     return top_path() + os.sep + p
+
+
 
 api = SoundcloudAPI()
 
@@ -160,18 +163,23 @@ def sanitize_filename(filename):
 
 
 
-async def async_download(videos,func):
+async def async_download(videos,func,callback):
     results = []
     for video in videos:
         if not os.path.isfile(music_path(video.title) + ".mp3"):
             ys = video.streams.get_audio_only()
-            ys.download(mp3=True,output_path=music_path()) # pass the parameter mp3=True to save in .mp3
+            ys.download(mp3=True,output_path=music_path(), filename=sanitize_filename(video.title)) # pass the parameter mp3=True to save in .mp3
+        if(callback and callable(callback)):
+            if asyncio.iscoroutinefunction(callback):
+                await callback(video.title)
+            else:
+                callback(video.title)
         print(f"async downloaded {video.title}")
-        results.append(video.title)
+        results.append(sanitize_filename(video.title))
     #await asyncio.sleep(1)
     func(results)
 
-def download(url, func=None, loop=None):
+def download(url, func=None, loop=None, callback=None):
     results = []
     if("youtube.com" in url or "youtu.be" in url):
         if("&list" in url):
@@ -190,15 +198,15 @@ def download(url, func=None, loop=None):
                             pass
                         if(not ys):
                             return []
-                        ys.download(mp3=True,output_path=music_path()) # pass the parameter mp3=True to save in .mp3
-                    results.append(video.title)
+                        ys.download(mp3=True,output_path=music_path(),filename=sanitize_filename(video.title)) # pass the parameter mp3=True to save in .mp3
+                    results.append(sanitize_filename(video.title))
                 else:
                     vids.append(video)
                 inc += 1
 
             if(func != None and loop!= None and len(vids) > 0):
                 print(f"running async on {len(vids)} videos")
-                loop.create_task(async_download(vids,func))
+                loop.create_task(async_download(vids,func,callback))
         else:
             if is_compiled() and not os.path.exists(rel_path('cache')):
                 os.makedirs(rel_path('cache'))
@@ -233,11 +241,11 @@ def download(url, func=None, loop=None):
             results.append(track.title)
     else:
         link = search_youtube(url)
-        new_res = download(link,func,loop)
+        new_res = download(link,func,loop,callback)
         return new_res
     return results
 
-def get_audio(term, func=None, loop=None):
+def get_audio(term, func=None, loop=None, callback=None):
     match = None
     max_ratio = 0
     if(not validators.url(term)):
@@ -263,7 +271,7 @@ def get_audio(term, func=None, loop=None):
         print(f'{max_ratio}% on {term}, found {match}')
         if(max_ratio >= 75):
             return [match]
-    return download(term,func,loop)
+    return download(term,func,loop,callback)
 
 
 
@@ -321,10 +329,15 @@ class Timer:
 
     async def _run(self, delay, callback, *args, **kwargs):
         await asyncio.sleep(delay)
-        if asyncio.iscoroutinefunction(callback):
-            await callback(*args, **kwargs)
-        else:
-            callback(*args, **kwargs)
+        try:
+            if asyncio.iscoroutinefunction(callback):
+                await callback(*args, **kwargs)
+            else:
+                callback(*args, **kwargs)
+        except Exception as e:
+            print(f"Timer exception: {e}")
+
+
 
     def start(self, delay, callback, *args, **kwargs):
         if self.task is not None:
@@ -335,3 +348,31 @@ class Timer:
         if self.task is not None:
             self.task.cancel()
             self.task = None
+
+
+
+
+
+
+def time_until_raid(raid_days,raid_time,raid_min = 0):
+    now = datetime.now()
+    weekday = now.weekday()
+    clock = now.time()
+    before_raid = clock <= time(raid_time,raid_min)
+
+    d = datetime.combine(now,time(raid_time,raid_min))-datetime.combine(now,clock)
+
+    if(weekday in raid_days and before_raid):
+        #it's tue/thurs, check time
+        print(f"1 raid messaging in {d.total_seconds()}")
+        return d.total_seconds()
+    else:
+        # if it's not, check which is closest
+        next_day = raid_days[1]
+        if(weekday > raid_days[-1] or weekday < raid_days[0]):
+            next_day = raid_days[0]
+        day_diff = next_day-weekday
+
+        t = d.total_seconds() + day_diff * 24 * 3600
+        print(f"2 raid messaging in {t}")
+        return t

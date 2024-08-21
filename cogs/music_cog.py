@@ -27,7 +27,9 @@ class Music(commands.Cog):
         song = ""
         if(len(self.queue) > 0):
             song = self.queue[0]
-            await self.ensure_voice(ctx)
+            can_play = await self.ensure_voice(ctx)
+            if(not can_play):
+                return
         else:
             await ctx.send("No more music <:sadge:703608678649167882>")
             self.ctx = None
@@ -129,6 +131,9 @@ class Music(commands.Cog):
             return
         res = []
 
+        async def print_name(name):
+            await ctx.send(f'Queued {name}')
+
         if(args[0] == "toplist"):
             count = 50
             try:
@@ -139,6 +144,7 @@ class Music(commands.Cog):
             #play toplist
             pl = top_play(count)
             random.shuffle(pl)
+
             for song in pl:
                 try:
                     res = get_audio(song,self.add_result,self.bot.loop)
@@ -155,7 +161,7 @@ class Music(commands.Cog):
             return
 
         try:
-            res = get_audio(" ".join(args),self.add_result,self.bot.loop)
+            res = get_audio(" ".join(args),self.add_result,self.bot.loop,print_name)
         except Exception as e:
             print("error")
             print(e)

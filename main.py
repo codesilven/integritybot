@@ -5,7 +5,9 @@ import discord
 from discord.ext import commands
 import asyncio
 from cogs.utils import set_config,get_config
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 # call make config
 # get token object
@@ -24,7 +26,6 @@ except Exception as e:
     input()
     sys.exit(0)
 
-
 async def start_bot():
     bot = commands.Bot(command_prefix=get_config().prefix or ",", intents=discord.Intents.all(), help_command=None)
 
@@ -40,6 +41,13 @@ async def start_bot():
         await bot.load_extension('cogs.wow_cog')
     return bot
 
+async def main():
+    bot = await start_bot()
+    await bot.start(f'{token}')
+
 if __name__ == '__main__':
-    bot = asyncio.run(start_bot())
-    bot.run(f'{token}')
+    # bot = asyncio.run(start_bot())
+    # bot.run(f'{token}')
+    asyncio.run(main())
+
+

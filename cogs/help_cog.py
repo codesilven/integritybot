@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import random
 from discord.ext import commands
 from .utils import get_config
 
@@ -32,6 +33,7 @@ class Help(commands.Cog):
         message += f"{pfx}help - List the available commands.\n```"
         
         await ctx.send(message)
-    
+
+
 async def setup(bot):
     await bot.add_cog(Help(bot))
