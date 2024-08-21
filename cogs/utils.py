@@ -60,6 +60,9 @@ class Config:
             pass
 
         self.directory = clean_path(admin["directory"] or f"music")
+        if(not os.path.isabs(self.directory)):
+            self.directory = top_path() + os.sep + self.directory
+
         try:
             pfx = admin["prefix"].strip()
             assert len(pfx) > 0
@@ -153,7 +156,6 @@ def song_stats(song, key = "plays"):
         pass
 
 def music_path(song=""):
-    # load path from CSV or config or something
     path = get_config().directory
     return path + os.sep + song
 

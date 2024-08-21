@@ -7,7 +7,7 @@ from discord.ext import commands
 import discord
 import asyncio
 import os
-from .utils import song_stats, music_path, get_audio, parse_list, top_play, Timer, is_compiled, rel_path
+from .utils import song_stats, music_path, get_audio, parse_list, top_play, Timer, is_compiled, rel_path, get_config
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +18,9 @@ class Music(commands.Cog):
         self.ctx = None
         self.current = None
         self.timer = Timer()
+
+        os.makedirs(get_config().directory,exist_ok=True)
+
         os.makedirs(rel_path("db"),exist_ok=True)
         if not os.path.isfile(rel_path(f"db{os.sep}music_stats.json")):
             with open(rel_path(f"db{os.sep}music_stats.json"), "x", encoding="utf-8") as file:
