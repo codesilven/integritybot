@@ -37,6 +37,7 @@ class WoW(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.superusers = get_config().superusers
+        self.player_messages = {}
 
         #create player.json
         self.db_path = rel_path("db/player.json")
@@ -323,7 +324,13 @@ class WoW(commands.Cog):
             with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)      
 
-        await ctx.send(f"Added {"file" if attachment else message} for {player_to_add}") 
+            messages = list(filter(lambda x: x["player"] == player_to_add, self.data))[0]["data"]
+            random.shuffle(messages)
+            self.player_messages[player_to_add]["messages"] = messages
+
+            await ctx.send(f"Added {"file" if attachment else message} for {player_to_add}")
+            return
+        await ctx.send("Weird error?")
 
     @commands.command(pass_context=True)
     async def delete(self,ctx,*args):
@@ -349,6 +356,11 @@ class WoW(commands.Cog):
             with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False) 
 
+            messages = list(filter(lambda x: x["player"] == player_to_remove, self.data))[0]["data"]
+            random.shuffle(messages)
+            self.player_messages[player_to_remove]["messages"] = messages
+
+
 
     @commands.command(pass_context=True)
     async def player(self, ctx, arg = None):
@@ -368,11 +380,28 @@ class WoW(commands.Cog):
         res = None
         try:
             name = mask(arg.lower(),self.opts["mask"])
-            res = random.choice(list(filter(lambda x: x["player"] == name, self.data))[0]["data"])
-        except:
-            pass
+            if(not name in self.player_messages):
+                messages = list(filter(lambda x: x["player"] == name, self.data))[0]["data"]
+                random.shuffle(messages)
+                d = {
+                    "messages": messages,
+                    "index": 0,
+                    "last_message_id": None
+                }
+                self.player_messages[name] = d
+            if(self.player_messages[name]["index"] >= len(self.player_messages[name]["messages"]) and len(self.player_messages[name]["messages"]) > 0):
+                random.shuffle(self.player_messages[name]["messages"])
+                while self.player_messages[name]["last_message_id"] == self.player_messages[name]["messages"][0]["id"]:
+                    random.shuffle(self.player_messages[name]["messages"])
+                self.player_messages[name]["index"] = 0
 
+            res = self.player_messages[name]["messages"][self.player_messages[name]["index"]]
+            self.player_messages[name]["index"] += 1
+        except Exception as e:
+            print(e)
+            pass
         if(res):
+            self.player_messages[name]["last_message_id"] = res["id"]
             await self.send(ctx,res)
             return
         

@@ -339,8 +339,6 @@ class Timer:
         except Exception as e:
             print(f"Timer exception: {e}")
 
-
-
     def start(self, delay, callback, *args, **kwargs):
         if self.task is not None:
             self.task.cancel()
@@ -350,11 +348,6 @@ class Timer:
         if self.task is not None:
             self.task.cancel()
             self.task = None
-
-
-
-
-
 
 def time_until_raid(raid_days,raid_time,raid_min = 0):
     now = datetime.now()
@@ -371,9 +364,13 @@ def time_until_raid(raid_days,raid_time,raid_min = 0):
     else:
         # if it's not, check which is closest
         next_day = raid_days[1]
-        if(weekday > raid_days[-1] or weekday < raid_days[0]):
+        print(weekday, raid_days)
+        if(weekday >= raid_days[-1] or weekday < raid_days[0]):
             next_day = raid_days[0]
         day_diff = next_day-weekday
+        if(day_diff <= 0):
+            day_diff = 7+day_diff
+        print("day_diff: ",day_diff)
 
         t = d.total_seconds() + day_diff * 24 * 3600
         print(f"2 raid messaging in {t}")
