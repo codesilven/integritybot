@@ -103,6 +103,17 @@ class WoW(commands.Cog):
         self.timer = Timer()
         self.timer.start(lapse, self.raid_message)
 
+    def ensure_message(self,name):
+        if(not name in self.player_messages):
+            messages = list(filter(lambda x: x["player"] == name, self.data))[0]["data"]
+            random.shuffle(messages)
+            d = {
+                "messages": messages,
+                "index": 0,
+                "last_message_id": None
+            }
+            self.player_messages[name] = d
+
     async def raid_message(self):
         if(not "raid_channel_id" in self.opts):
             print("Error: no raid channel id.")
@@ -324,6 +335,8 @@ class WoW(commands.Cog):
             with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False)      
 
+
+            self.ensure_message(player_to_add)
             messages = list(filter(lambda x: x["player"] == player_to_add, self.data))[0]["data"]
             random.shuffle(messages)
             self.player_messages[player_to_add]["messages"] = messages
@@ -356,6 +369,7 @@ class WoW(commands.Cog):
             with open(self.db_path, "w", encoding="utf-8") as file:
                 json.dump({"data":self.data}, file, indent=2, ensure_ascii=False) 
 
+            self.ensure_message(player_to_remove)
             messages = list(filter(lambda x: x["player"] == player_to_remove, self.data))[0]["data"]
             random.shuffle(messages)
             self.player_messages[player_to_remove]["messages"] = messages
@@ -380,15 +394,7 @@ class WoW(commands.Cog):
         res = None
         try:
             name = mask(arg.lower(),self.opts["mask"])
-            if(not name in self.player_messages):
-                messages = list(filter(lambda x: x["player"] == name, self.data))[0]["data"]
-                random.shuffle(messages)
-                d = {
-                    "messages": messages,
-                    "index": 0,
-                    "last_message_id": None
-                }
-                self.player_messages[name] = d
+            self.ensure_message(name)
             if(self.player_messages[name]["index"] >= len(self.player_messages[name]["messages"]) and len(self.player_messages[name]["messages"]) > 0):
                 random.shuffle(self.player_messages[name]["messages"])
                 while self.player_messages[name]["last_message_id"] == self.player_messages[name]["messages"][0]["id"]:
