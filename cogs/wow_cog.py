@@ -141,7 +141,8 @@ class WoW(commands.Cog):
         with open(self.opt_path, "w", encoding="utf-8") as file:
             json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
         await ctx.send(f"Set raid channel to {ctx.channel} (id {ctx.channel.id})")
-        
+  
+
     @commands.command(pass_context=True)
     async def set_raid_role(self,ctx,*args):
         id = None
@@ -354,16 +355,18 @@ class WoW(commands.Cog):
         player_to_remove = None
         id = None
         try:
-            player_to_remove = str(args[0]).lower()
+            player_to_remove = mask(str(args[0]).lower(),self.opts["mask"])
             id = args[1]
         except:
             pass
 
         if(player_to_remove and id and is_uuid(id)):
+            msg_value = "''"
             with open(self.db_path, encoding="utf-8") as db:
                 data = json.load(db)["data"]
                 relevant_player = list(filter(lambda x: x["player"] == player_to_remove, data))
                 if(relevant_player and len(relevant_player) > 0):
+                    msg_value = list(filter(lambda x: x["id"] == id, relevant_player[0]["data"]))[0]["value"]
                     relevant_player[0]["data"] = list(filter(lambda x: x["id"] != id, relevant_player[0]["data"]))
                     self.data = data
             with open(self.db_path, "w", encoding="utf-8") as file:
@@ -373,6 +376,8 @@ class WoW(commands.Cog):
             messages = list(filter(lambda x: x["player"] == player_to_remove, self.data))[0]["data"]
             random.shuffle(messages)
             self.player_messages[player_to_remove]["messages"] = messages
+
+            await ctx.send(f"Deleted message {msg_value} for {player_to_remove}!")
 
 
 

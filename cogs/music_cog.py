@@ -81,12 +81,23 @@ class Music(commands.Cog):
             print("fail")
             pass
 
+
+    def clear_songs(self,passed_ctx):
+        ctx = passed_ctx or self.ctx
+        if(self.voice_channel):
+            self.voice_channel.stop()
+        self.current = None
+        self.queue = []
+
+
     async def ensure_voice(self, ctx):
         if ctx.voice_client is None:
             if ctx.author.voice:
                 self.voice_channel = await ctx.author.voice.channel.connect()
+                self.clear_songs(ctx)
             else:
                 await ctx.send("You are not in a voice channel! <:madge:1009748173717250098>")
+                self.clear_songs(ctx)
                 return False
                 #raise commands.CommandError("Author not connected to a voice channel.")
         elif ctx.voice_client.is_playing():
@@ -97,9 +108,7 @@ class Music(commands.Cog):
         # if await self.user_is_connected(ctx) and self.voice_channel.is_connected():
         try:
             await ctx.send("<a:kekbye:1264754885182754998> I'm outta this joint")
-            self.queue = []
-            self.current = None
-            self.voice_channel.stop()
+            self.clear_songs(ctx)
             await self.voice_channel.disconnect()
             self.voice_channel = None
         except:
@@ -209,17 +218,27 @@ class Music(commands.Cog):
             count = len(self.queue) + 1
 
         cloned = copy.deepcopy(self.queue)
-        cloned.insert(0,self.current)
+        if(self.current != None):
+            cloned.insert(0,self.current)
         for i in range(0, count-1):
             skipped = self.queue.pop(0)
             song_stats(skipped + ".mp3","skipped")
 
-        if await self.user_is_connected(ctx) and self.voice_channel.is_connected() and self.playing:
+        if await self.user_is_connected(ctx) and self.voice_channel and self.voice_channel.is_connected() and self.playing:
             msg = f'Skipped {", ".join(cloned[0:count])}'
             msg += "\nYou better not have skipped gachi <:fatmald:677160470875996171>"
             await ctx.send(msg)
             song_stats(self.current + ".mp3","skipped")
             self.voice_channel.stop()
+        else:
+            print("No skip?")
+            print(self.current)
+            print(self.queue)
+            print(self.playing)
+            print(await self.user_is_connected(ctx))
+            if(self.voice_channel):
+                print(self.voice_channel.is_connected())
+            await ctx.send("Unable to skip <:admiralb:888877774964682772>")
 
     
     @commands.command(pass_context=True)
