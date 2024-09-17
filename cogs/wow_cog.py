@@ -476,9 +476,8 @@ class WoW(commands.Cog):
             old = float(old)
             new = float(new)
             go_ahead = True
-        except ValueError:
+        except ValueError as e:
             pass
-
         try:
             (old,new,old_mult) = args
             old = float(old)
@@ -492,13 +491,13 @@ class WoW(commands.Cog):
             old = float(old)
             new = float(new)
             old_mult = float(old_mult)
-            new_mult = int(new_mult)
+            new_mult = float(new_mult)
             go_ahead = True
         except ValueError:
             pass
 
         if(not go_ahead):
-            await ctx.send("Invalid syntax - first two arguments must be integer or float, representing crit chance before/after comparison, such as ,crit_calc 10 20 for 10% and 20%.\nStop pretending. <:weirdchamp:677517236692320256>")
+            await ctx.send("Invalid syntax - first two arguments must be integer or fraction, representing crit chance before/after comparison, such as ,crit_calc 10 20 for 10% and 20%.\nStop pretending. <:weirdchamp:677517236692320256>")
             return
         await ctx.send(compare_crit(old,new,old_mult,new_mult))    
 
