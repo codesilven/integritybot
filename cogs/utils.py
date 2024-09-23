@@ -3,10 +3,10 @@ import json
 import os
 import re
 import sys
-from youtubesearchpython import VideosSearch
 from fuzzywuzzy import fuzz
-from pytubefix import YouTube
-from pytubefix import Playlist
+from pytubefix import YouTube, Playlist, Search
+from pytubefix.exceptions import VideoUnavailable
+from http.client import IncompleteRead
 from pytubefix.cli import on_progress
 import os.path
 from sclib import SoundcloudAPI
@@ -99,7 +99,6 @@ def is_compiled():
 def clean_path(path):
     normalized_path = os.path.normpath(path)
     cleaned_path = normalized_path.strip(os.path.sep)
-    
     return cleaned_path
 
 def top_path():
@@ -117,20 +116,20 @@ api = SoundcloudAPI()
 
 
 def search_youtube(term):
-    videos_search = VideosSearch(term, limit=100, language="en",region="US")
-    results = videos_search.result()
+    use_auth = get_config().auth
+    videos_search = Search(term, use_oauth=use_auth, allow_oauth_cache=use_auth,token_file=rel_path(f"cache{os.sep}tokens.json") if (is_compiled() and use_auth) else None)
     match = None
     max_ratio = 0
-    if results['result']:
-        for res in results["result"]:
+    if len(videos_search > 0):
+        for res in videos_search:
             t_term = re.sub(r'[^a-zA-Z0-9]', '', term).lower()
-            t_title = re.sub(r'[^a-zA-Z0-9]', '', res["accessibility"]["title"]).lower()
+            t_title = re.sub(r'[^a-zA-Z0-9]', '', res.title).lower()
             ratio = fuzz.ratio(t_term,t_title)
             if(ratio > max_ratio):
                 match = res
                 max_ratio = ratio
 
-        video_url = match['link']
+        video_url = match.watch_url
         return video_url
     else:
         return None
@@ -165,89 +164,63 @@ def sanitize_filename(filename):
 
 
 
-async def async_download(videos,func,callback):
+def download_soundloud(url):
     results = []
-    for video in videos:
-        if not os.path.isfile(music_path(video.title) + ".mp3"):
-            ys = video.streams.get_audio_only()
-            ys.download(mp3=True,output_path=music_path(), filename=sanitize_filename(video.title)) # pass the parameter mp3=True to save in .mp3
-        if(callback and callable(callback)):
-            if asyncio.iscoroutinefunction(callback):
-                await callback(video.title)
-            else:
-                callback(video.title)
-        print(f"async downloaded {video.title}")
-        results.append(sanitize_filename(video.title))
-    #await asyncio.sleep(1)
-    func(results)
-
-def download(url, func=None, loop=None, callback=None):
-    results = []
-    if("youtube.com" in url or "youtu.be" in url):
-        if("&list" in url):
-            pl = Playlist(url)
-            vids = []
-            inc = 0
-            for video in pl.videos:
-                if(inc == 0):
-                    if not os.path.isfile(music_path(video.title) + ".mp3"):
-                        print("download " +video.title)
-                        ys = None
-                        try:
-                            ys = video.streams.get_audio_only()
-                        except:
-                            print("no download?")
-                            pass
-                        if(not ys):
-                            return []
-                        ys.download(mp3=True,output_path=music_path(),filename=sanitize_filename(video.title)) # pass the parameter mp3=True to save in .mp3
-                    results.append(sanitize_filename(video.title))
-                else:
-                    vids.append(video)
-                inc += 1
-
-            if(func != None and loop!= None and len(vids) > 0):
-                print(f"running async on {len(vids)} videos")
-                loop.create_task(async_download(vids,func,callback))
-        else:
-            if is_compiled() and not os.path.exists(rel_path('cache')):
-                os.makedirs(rel_path('cache'))
-            use_auth = get_config().auth
-            yt = YouTube(url, on_progress_callback = on_progress, use_oauth=use_auth, allow_oauth_cache=use_auth, token_file=rel_path(f"cache{os.sep}tokens.json") if (is_compiled() and use_auth) else None)
-            print(yt.title)
-            if not os.path.isfile(music_path(yt.title) + ".mp3"):
-                ys = None
-                try:
-                    ys = yt.streams.get_audio_only()
-                except Exception as e:
-                    print("error?")
-                    print(e)
-                    pass
-                if(not ys):
-                    return []
-                ys.download(mp3=True,output_path=music_path(), filename=sanitize_filename(yt.title)) # pass the parameter mp3=True to save in .mp3
-            results.append(sanitize_filename(yt.title))
-    elif("soundcloud.com" in url):
-        if("/sets/" in url):
-            playlist = api.resolve(url)
-            for track in playlist.tracks:
-                filename = music_path(track.title)+".mp3"
-                with open(filename, 'wb+') as file:
-                    track.write_mp3_to(file)
-                results.append(track.title)
-        else:
-            track = api.resolve(url)
+    if("/sets/" in url):
+        playlist = api.resolve(url)
+        for track in playlist.tracks:
             filename = music_path(track.title)+".mp3"
             with open(filename, 'wb+') as file:
                 track.write_mp3_to(file)
             results.append(track.title)
     else:
-        link = search_youtube(url)
-        new_res = download(link,func,loop,callback)
-        return new_res
+        track = api.resolve(url)
+        filename = music_path(track.title)+".mp3"
+        with open(filename, 'wb+') as file:
+            track.write_mp3_to(file)
+        results.append(track.title)
     return results
 
-def get_audio(term, func=None, loop=None, callback=None):
+
+def yt_playlist(url):
+    pl = Playlist(url)
+    return pl.title, [video.watch_url for video in pl.videos]
+
+def download_yt_video(url):
+    use_auth = get_config().auth
+    yt = YouTube(url, on_progress_callback = on_progress, use_oauth=use_auth, allow_oauth_cache=use_auth, token_file=rel_path(f"cache{os.sep}tokens.json") if (is_compiled() and use_auth) else None)
+    fn = sanitize_filename(yt.title)
+    retry = True
+    retry_count = 10
+
+    if not os.path.isfile(music_path(fn) + ".mp3"):
+        while retry:
+            retry = False
+            ys = None
+            try:
+                ys = yt.streams.get_audio_only()
+            except VideoUnavailable:
+                print("Video unvailable, retrying")
+                retry = True
+                pass
+            except Exception as e:
+                print("error?")
+                print(e)
+                pass
+            try:
+                ys.download(mp3=True,output_path=music_path(), filename=fn) # pass the parameter mp3=True to save in .mp3
+            except IncompleteRead:
+                print("Incomplete read, retrying")
+                retry = True
+                pass
+
+            if(retry and retry_count == 0):
+                retry = False
+            else:
+                retry_count -= 1
+    return fn
+
+def get_local_audio(term):
     match = None
     max_ratio = 0
     if(not validators.url(term)):
@@ -273,9 +246,8 @@ def get_audio(term, func=None, loop=None, callback=None):
         print(f'{max_ratio}% on {term}, found {match}')
         if(max_ratio >= 75):
             return [match]
-    return download(term,func,loop,callback)
-
-
+    return []
+    #return download(term,func,loop,callback)
 
 
 def top_list(key="plays",count=10):

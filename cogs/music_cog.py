@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from concurrent.futures import ProcessPoolExecutor
 import copy
 import json
 import random
@@ -7,7 +8,13 @@ from discord.ext import commands
 import discord
 import asyncio
 import os
-from .utils import song_stats, music_path, get_audio, parse_list, top_play, Timer, is_compiled, rel_path, get_config
+from .utils import download_soundloud, download_yt_video, song_stats, music_path, get_local_audio, parse_list, top_play, Timer, is_compiled, rel_path, get_config, yt_playlist
+from pytubefix import Playlist
+
+
+
+
+
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -18,14 +25,122 @@ class Music(commands.Cog):
         self.ctx = None
         self.current = None
         self.timer = Timer()
+        self.yt_blame = True
 
         os.makedirs(get_config().directory,exist_ok=True)
+        if is_compiled() and not os.path.exists(rel_path('cache')):
+            os.makedirs(rel_path('cache'))
 
         os.makedirs(rel_path("db"),exist_ok=True)
         if not os.path.isfile(rel_path(f"db{os.sep}music_stats.json")):
             with open(rel_path(f"db{os.sep}music_stats.json"), "x", encoding="utf-8") as file:
                 json.dump({"data":[]}, file, indent=2, ensure_ascii=False)
+
+
+    async def run_sc_download(self, url):
+        loop = asyncio.get_running_loop()
+        with ProcessPoolExecutor() as pool:
+            songs = await loop.run_in_executor(pool, download_soundloud, url)
+        return songs
+    
+    async def run_yt_playlist(self, url):
+        loop = asyncio.get_running_loop()
+        with ProcessPoolExecutor() as pool:
+            title, urls = await loop.run_in_executor(pool, yt_playlist, url)
+        return title, urls
+    
+    async def run_yt_download(self, url):
+        loop = asyncio.get_running_loop()
+        with ProcessPoolExecutor() as pool:
+            vid = await loop.run_in_executor(pool, download_yt_video, url)
+        return vid
+
+
+    @commands.command(pass_context = True)
+    async def play(self, ctx, *args):
+        can_play = await self.ensure_voice(ctx)
+        if(not can_play):
+            return
+
+        if(len(args) == 0):
+            await ctx.send("Link <a:a52updates:1122163070815449160>")
+            return
         
+        res = []
+        # handle toplist
+        if(args[0] == "toplist"):
+            count = 50
+            try:
+                count = int(args[1])
+                assert count > 0
+            except:
+                pass
+            pl = top_play(count)
+            random.shuffle(pl)
+            res = pl
+
+        # check if file is downloaded
+        if(len(res) == 0):
+            res = get_local_audio(" ".join(args))
+
+        # check if yt, soundcloud, yt playlist, or search term
+        if(len(res) == 0):
+            term = " ".join(args)
+            if "soundcloud.com" in term:
+                res = await self.run_sc_download(term)
+                for s in res:
+                    self.queue.append(s)
+                if(len(res) > 1):
+                    await ctx.send(f'Queued {len(res)} songs')
+                else:
+                    await ctx.send(f'Queued {res[0]}')
+                self.ctx = ctx
+                if(not self.playing):
+                    self.playing = True
+                    await self.play_song(ctx)  
+
+            elif "youtube.com" in term or "youtu.be" in term:
+                if(self.yt_blame):
+                    self.yt_blame = False
+                    await ctx.send("Youtube links take a few minutes to parse. Blame YouTube, not me.")
+                urls = []
+                if("&list" in term):
+                    #title, urls = await self.run_yt_playlist_info(term)
+                    #await ctx.send(f"Processed playlist {title}. Downloading songs...")
+                    await ctx.send(f"Processing playlist...")
+                    title, urls = await self.run_yt_playlist(term)
+                    await ctx.send(f"Downloading playlist '{title}'")
+                else:
+                    urls = [term]
+                print(urls)
+                for url in urls:
+                    vid = await self.run_yt_download(url)
+                    await ctx.send(f"Downloaded {vid}.")
+                    self.queue.append(vid)
+                    await ctx.send(f'Queued {vid}.')
+                    self.ctx = ctx
+                    if(not self.playing):
+                        self.playing = True
+                        await self.play_song(ctx)
+            else:
+                await ctx.send("Attachments / yt search terms not implemented yet. Stay tuned.")
+                # search
+                pass
+        else:
+            for s in res:
+                self.queue.append(s)
+            if(len(res) > 1):
+                await ctx.send(f'Queued {len(res)} songs')
+            else:
+                await ctx.send(f'Queued {res[0]}')
+            
+            self.ctx = ctx
+            if(not self.playing):
+                self.playing = True
+                await self.play_song(ctx)  
+
+
+
     async def play_song(self,ctx):
         song = ""
         if(len(self.queue) > 0):
@@ -111,91 +226,10 @@ class Music(commands.Cog):
             self.clear_songs(ctx)
             await self.voice_channel.disconnect()
             self.voice_channel = None
+            self.yt_blame = False
         except:
             print("error leaving kekl")
             pass
-
-
-    @commands.command(pass_context=True)
-    async def join(self,ctx):
-        # Check if the author is in a voice channel
-        if ctx.author.voice:
-            channel = ctx.author.voice.channel
-            self.voice_channel = await channel.connect()
-            await ctx.send(f'Joined {channel} <:gachihyper:717874121429614653>')
-        else:
-            await ctx.send("You are not in a voice channel! <:madge:1009748173717250098>")
-
-    def add_result(self,song_list):
-        if(len(song_list) > 0):
-            for s in song_list:
-                print(f'added {s} async')
-                self.queue.append(s)
-
-    @commands.command(pass_context=True)
-    async def play(self,ctx,*args):
-        can_play = await self.ensure_voice(ctx)
-        if(not can_play):
-            return
-
-        if(len(args) == 0):
-            await ctx.send("Link <a:a52updates:1122163070815449160>")
-            return
-        res = []
-
-        async def print_name(name):
-            await ctx.send(f'Queued {name}')
-
-        if(args[0] == "toplist"):
-            count = 50
-            try:
-                count = int(args[1])
-                assert count > 0
-            except:
-                pass
-            #play toplist
-            pl = top_play(count)
-            random.shuffle(pl)
-
-            for song in pl:
-                try:
-                    res = get_audio(song,self.add_result,self.bot.loop)
-                    for s in res:
-                        if(not s in self.queue):
-                            self.queue.append(s)
-                except:
-                    print("Skipped "+song)
-            await ctx.send(f'Queued top {count} songs in random order <:kekpipe:1009720099692888114>')
-            self.ctx = ctx
-            if(not self.playing):
-                self.playing = True
-                await self.play_song(ctx)  
-            return
-
-        try:
-            res = get_audio(" ".join(args),self.add_result,self.bot.loop,print_name)
-        except Exception as e:
-            print("error")
-            print(e)
-            res = []
-        if(not res):
-            await ctx.send("Something went wrong, probably a regex/throttling issue <:admiralb:888877774964682772> ")
-            return
-        if(len(res) == 0):
-            await ctx.send("Link <a:a52updates:1122163070815449160>")
-            return
-
-        for s in res:
-            self.queue.append(s)
-        if(len(res) > 1):
-            await ctx.send(f'Queued {len(res)} songs')
-        else:
-            await ctx.send(f'Queued {res[0]}')
-        
-        self.ctx = ctx
-        if(not self.playing):
-            self.playing = True
-            await self.play_song(ctx)       
 
     async def user_is_connected(self,ctx):
         if ctx.author.voice is None:
