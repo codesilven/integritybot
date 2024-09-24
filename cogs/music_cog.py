@@ -8,12 +8,9 @@ from discord.ext import commands
 import discord
 import asyncio
 import os
-from .utils import download_soundloud, download_yt_video, song_stats, music_path, get_local_audio, parse_list, top_play, Timer, is_compiled, rel_path, get_config, yt_playlist
-from pytubefix import Playlist
-
-
-
-
+import mimetypes
+import requests
+from .utils import download_soundloud, download_yt_video, sanitize_filename, search_youtube, song_stats, music_path, get_local_audio, parse_list, top_play, Timer, is_compiled, rel_path, get_config, yt_playlist
 
 
 class Music(commands.Cog):
@@ -26,7 +23,6 @@ class Music(commands.Cog):
         self.current = None
         self.timer = Timer()
         self.yt_blame = True
-
         os.makedirs(get_config().directory,exist_ok=True)
         if is_compiled() and not os.path.exists(rel_path('cache')):
             os.makedirs(rel_path('cache'))
@@ -55,6 +51,11 @@ class Music(commands.Cog):
             vid = await loop.run_in_executor(pool, download_yt_video, url)
         return vid
 
+    async def run_search_yt(self, term):
+        loop = asyncio.get_running_loop()
+        with ProcessPoolExecutor as pool:
+            url = await loop.run_in_executor(pool, search_youtube, term)
+        return url
 
     @commands.command(pass_context = True)
     async def play(self, ctx, *args):
@@ -62,12 +63,46 @@ class Music(commands.Cog):
         if(not can_play):
             return
 
-        if(len(args) == 0):
+        has_attachment = False
+        try:
+            has_attachment = True if len(ctx.message.attachments) > 0 else False
+        except Exception as e:
+            print(e)
+            pass
+        print(has_attachment)
+        if(len(args) == 0 and not has_attachment):
             await ctx.send("Link <a:a52updates:1122163070815449160>")
             return
         
         res = []
         # handle toplist
+        if(has_attachment):
+            attach = ctx.message.attachments[0]
+            if(not attach.filename.endswith(".mp3")):
+                await ctx.send("Only .mp3 files accepted.")
+                return
+            #file = await attach.read()
+            file_type, _ = mimetypes.guess_type(attach.filename)
+            if file_type != "audio/mpeg":
+                await ctx.send("Only .mp3 audio files accepted.")
+                return
+            
+            name = sanitize_filename(attach.filename)
+            res = requests.get(attach.url, stream=True)
+            if(res.status_code == 200):
+                with open(music_path(name)+".mp3","wb") as d_file:
+                    for chunk in res.iter_content(8192):
+                        if chunk:
+                            d_file.write(chunk)
+
+            self.queue.append(name)
+            await ctx.send(f'Queued {name}')
+            self.ctx = ctx
+            if(not self.playing):
+                self.playing = True
+                await self.play_song(ctx)  
+            return
+
         if(args[0] == "toplist"):
             count = 50
             try:
@@ -123,7 +158,10 @@ class Music(commands.Cog):
                         self.playing = True
                         await self.play_song(ctx)
             else:
-                await ctx.send("Attachments / yt search terms not implemented yet. Stay tuned.")
+                await ctx.send("yt search terms not implemented yet. Stay tuned.")
+
+                #run_search_yt
+
                 # search
                 pass
         else:
