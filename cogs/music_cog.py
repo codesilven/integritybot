@@ -69,7 +69,6 @@ class Music(commands.Cog):
         except Exception as e:
             print(e)
             pass
-        print(has_attachment)
         if(len(args) == 0 and not has_attachment):
             await ctx.send("Link <a:a52updates:1122163070815449160>")
             return
@@ -236,11 +235,13 @@ class Music(commands.Cog):
 
 
     def clear_songs(self,passed_ctx):
-        ctx = passed_ctx or self.ctx
+        # ctx = passed_ctx or self.ctx
         if(self.voice_channel):
             self.voice_channel.stop()
         self.current = None
         self.queue = []
+        self.ctx = None
+        self.playing = False
 
 
     async def ensure_voice(self, ctx):

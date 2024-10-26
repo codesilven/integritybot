@@ -207,12 +207,13 @@ def download_yt_video(url):
                 print("error?")
                 print(e)
                 pass
-            try:
-                ys.download(mp3=True,output_path=music_path(), filename=fn) # pass the parameter mp3=True to save in .mp3
-            except IncompleteRead:
-                print("Incomplete read, retrying")
-                retry = True
-                pass
+            if(ys):
+                try:
+                    ys.download(mp3=True,output_path=music_path(), filename=fn) # pass the parameter mp3=True to save in .mp3
+                except IncompleteRead:
+                    print("Incomplete read, retrying")
+                    retry = True
+                    pass
 
             if(retry and retry_count == 0):
                 retry = False
@@ -285,8 +286,6 @@ def parse_list(args, key="plays"):
     for song in res:
         msg = f'{count+1}. {song["song"][:-4]} ({song[key]})'
         if(count < len(res)-1):
-            # print(count)
-            # print(len(res))
             msg += "\n"
         if(len(chunks[chunk_index]) + len(msg) >= 2000):
             chunk_index +=1
