@@ -463,6 +463,9 @@ class WoW(commands.Cog):
         if(not go_ahead):
             await ctx.send("Invalid syntax - first two arguments must be integer or float, representing armor pen before/after comparison, such as ,arpen_calc 10 20 for 10% and 20%.\nStop pretending. <:weirdchamp:677517236692320256>")
             return
+        old = max(min(100,old),0)
+        new = max(min(100,new),0)
+        pen = max(min(100,pen),0)
         await ctx.send(compare(old,new,pen,flat))    
 
 

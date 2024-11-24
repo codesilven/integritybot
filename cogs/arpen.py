@@ -37,9 +37,9 @@ def calculate_output(pen=0,pct=0,flat=0):
 def compare(old,new,common_reduction,flat):
     #old/new is 0-100%
     #common is 0-100%
-    pct = 0.25 if common_reduction else 0
-    old_dd = calculate_output(old,pct,flat)
-    new_dd = calculate_output(new,pct,flat)
+    pct = common_reduction
+    old_dd = min(1,calculate_output(old,pct,flat))
+    new_dd = min(1,calculate_output(new,pct,flat))
     msg = f'Old damage done {old_dd*100:,.1f}%\nNew damage done {new_dd*100:,.1f}%\nIncrease is {((new_dd/old_dd)*100)-100:,.2f}% relative and {((new_dd-old_dd)*100):,.1f}% absolute.\n'
     msg += 'If you\'re <:pepega:676936119069179914>, the number you probably want (dps increase) is the first (relative) number.'
     return msg

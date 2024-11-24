@@ -134,28 +134,36 @@ class Music(commands.Cog):
                     await self.play_song(ctx)  
 
             elif "youtube.com" in term or "youtu.be" in term:
+                is_playlist = False
+                title = ""
                 if(self.yt_blame):
                     self.yt_blame = False
                     await ctx.send("Youtube links take a few minutes to parse. Blame YouTube, not me.")
                 urls = []
                 if("&list" in term):
-                    #title, urls = await self.run_yt_playlist_info(term)
-                    #await ctx.send(f"Processed playlist {title}. Downloading songs...")
+                    is_playlist = True
                     await ctx.send(f"Processing playlist...")
+                    self.timer.start(300,self.leave,ctx)
                     title, urls = await self.run_yt_playlist(term)
+                    self.timer.start(300,self.leave,ctx)
                     await ctx.send(f"Downloading playlist '{title}'")
                 else:
                     urls = [term]
                 print(urls)
                 for url in urls:
+                    self.ctx = ctx
+                    self.timer.start(300,self.leave,ctx)
                     vid = await self.run_yt_download(url)
+                    self.timer.start(300,self.leave,ctx)
                     await ctx.send(f"Downloaded {vid}.")
+                    self.timer.start(300,self.leave,ctx)
                     self.queue.append(vid)
                     await ctx.send(f'Queued {vid}.')
-                    self.ctx = ctx
                     if(not self.playing):
                         self.playing = True
                         await self.play_song(ctx)
+                if(is_playlist):
+                    await ctx.send(f"Finished downloading playlist '{title}'")
             else:
                 await ctx.send("yt search terms not implemented yet. Stay tuned.")
 
@@ -226,12 +234,20 @@ class Music(commands.Cog):
         print("dispatched")
         coro = self.play_song(self.ctx)
         fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+        passed = True
         try:
             print("fut.result")
             fut.result()
         except:
+            passed = False
             print("fail")
             pass
+        if(not passed):
+            try:
+                coro = self.play_song(self.ctx)
+                fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+            except:
+                self.leave(self.ctx)
 
 
     def clear_songs(self,passed_ctx):
