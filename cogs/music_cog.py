@@ -188,7 +188,9 @@ class Music(commands.Cog):
 
     async def play_song(self,ctx):
         song = ""
-        if(len(self.queue) > 0):
+        if(ctx is None):
+            ctx = self.ctx
+        if(len(self.queue) > 0 and ctx is not None):
             song = self.queue[0]
             can_play = await self.ensure_voice(ctx)
             if(not can_play):
@@ -238,16 +240,19 @@ class Music(commands.Cog):
         try:
             print("fut.result")
             fut.result()
-        except:
+        except Exception as e:
             passed = False
-            print("fail")
+            print("fail",e)
             pass
         if(not passed):
             try:
+                print("1")
                 coro = self.play_song(self.ctx)
                 fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
             except:
+                print("2")
                 self.leave(self.ctx)
+
 
 
     def clear_songs(self,passed_ctx):

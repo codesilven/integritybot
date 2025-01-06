@@ -186,6 +186,13 @@ def yt_playlist(url):
     pl = Playlist(url)
     return pl.title, [video.watch_url for video in pl.videos]
 
+def test_progress (stream, chunk, bytes_remaining, message_update):
+    filesize = stream.filesize
+    bytes_received = filesize - bytes_remaining
+    percent = round(100.0 * bytes_received / float(filesize), 1)
+    message_update(percent)
+    on_progress(stream, chunk, bytes_remaining)
+
 def download_yt_video(url):
     use_auth = get_config().auth
     yt = YouTube(url, on_progress_callback = on_progress, use_oauth=use_auth, allow_oauth_cache=use_auth, token_file=rel_path(f"cache{os.sep}tokens.json") if (is_compiled() and use_auth) else None)
@@ -209,7 +216,7 @@ def download_yt_video(url):
                 pass
             if(ys):
                 try:
-                    ys.download(mp3=True,output_path=music_path(), filename=fn) # pass the parameter mp3=True to save in .mp3
+                    ys.download(output_path=music_path(), filename=fn +".mp3") # pass the parameter mp3=True to save in .mp3
                 except IncompleteRead:
                     print("Incomplete read, retrying")
                     retry = True
