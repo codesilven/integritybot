@@ -199,7 +199,7 @@ class Music(commands.Cog):
             await ctx.send("No more music <:sadge:703608678649167882>")
             self.ctx = None
             self.current = None
-            self.playing = False
+            self.playing = False 
             self.timer.start(300,self.leave,ctx)
             return
 
