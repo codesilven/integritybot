@@ -28,6 +28,14 @@
 
 6. Run the `main.py` file using Python3.
 
+### Usage:
+
+1. Type ,help in any channel. The prefix and most anything can be changed in the config file which will generate when ran.
+
+2. Bot supports YouTube and Soundcloud links, including playlists (but not radio play).
+
+3. You can upload local files by placing them in the directory and then typing their names. The hierarchy for non-link search terms is partial contained match > fuzzy match > (eventually YouTube search when I implement it)
+
 ### YouTube restrictions
 
 1. You can authenticate to allow you to watch age-restricted videos and others that require a login. If this is not something you want, you can disable it in the config.
