@@ -23,6 +23,8 @@ class Music(commands.Cog):
         self.current = None
         self.timer = Timer()
         self.yt_blame = True
+        self.pause = False
+        self.played = False
         os.makedirs(get_config().directory,exist_ok=True)
         if is_compiled() and not os.path.exists(rel_path('cache')):
             os.makedirs(rel_path('cache'))
@@ -56,6 +58,24 @@ class Music(commands.Cog):
         with ProcessPoolExecutor as pool:
             url = await loop.run_in_executor(pool, search_youtube, term)
         return url
+
+    async def playback(self, file, ctx = None):
+        if ctx == None:
+            ctx = self.ctx
+
+        if(is_compiled()):
+            opus = rel_path("opus.dll")
+            discord.opus.load_opus(opus)
+            if not discord.opus.is_loaded():
+                print("Opus not loaded! Provide opus.dll (DO NOT download this file from a sketchy site).\nMusic will not play without it.")
+
+        source = discord.PCMVolumeTransformer(
+            discord.FFmpegPCMAudio(file, options="-b:a 128k"),
+        )
+        ctx.voice_client.play(
+            source,
+            after=self.dispatch_play_song
+        )
 
     @commands.command(pass_context = True)
     async def play(self, ctx, *args):
@@ -142,11 +162,18 @@ class Music(commands.Cog):
                 urls = []
                 if("&list" in term):
                     is_playlist = True
-                    await ctx.send(f"Processing playlist...")
                     self.timer.start(300,self.leave,ctx)
-                    title, urls = await self.run_yt_playlist(term)
-                    self.timer.start(300,self.leave,ctx)
-                    await ctx.send(f"Downloading playlist '{title}'")
+                    try:
+                        title, urls = await self.run_yt_playlist(term)
+                        await ctx.send(f"Processing playlist...")
+                        self.timer.start(300,self.leave,ctx)
+                        await ctx.send(f"Downloading playlist '{title}'")
+                    except:
+                        try:    
+                            urls = [term.split("&list")[0]]  
+                            is_playlist = False
+                        except:
+                            await ctx.send(f"Unknown error!")
                 else:
                     urls = [term]
                 print(urls)
@@ -184,10 +211,20 @@ class Music(commands.Cog):
                 self.playing = True
                 await self.play_song(ctx)  
 
-
-
     async def play_song(self,ctx):
         song = ""
+        if self.pause == True:
+                if(ctx != None):
+                    self.ctx = ctx
+                def resume_and_recall(ctx):
+                    if(self.pause):
+                        asyncio.create_task(self.play_song(ctx))
+                    self.pause = False
+
+                local_timer = Timer()
+                local_timer.start(3, resume_and_recall, ctx)
+                return
+            
         if(ctx is None):
             ctx = self.ctx
         if(len(self.queue) > 0 and ctx is not None):
@@ -196,7 +233,8 @@ class Music(commands.Cog):
             if(not can_play):
                 return
         else:
-            await ctx.send("No more music <:sadge:703608678649167882>")
+            if(self.played and self.ctx):
+                await ctx.send("No more music <:sadge:703608678649167882>")
             self.ctx = None
             self.current = None
             self.playing = False 
@@ -207,19 +245,8 @@ class Music(commands.Cog):
         await ctx.send("Playing "+song)
         print(file)
 
-        if(is_compiled()):
-            opus = rel_path("opus.dll")
-            discord.opus.load_opus(opus)
-            if not discord.opus.is_loaded():
-                print("Opus not loaded! Provide opus.dll (DO NOT download this file from a sketchy site).\nMusic will not play without it.")
-
-        source = discord.PCMVolumeTransformer(
-            discord.FFmpegPCMAudio(file, options="-b:a 128k"),
-        )
-        ctx.voice_client.play(
-            source,
-            after=self.dispatch_play_song
-        )
+        await self.playback(file, ctx)
+        self.played = True
         
         song_stats(song + ".mp3")
 
@@ -228,32 +255,40 @@ class Music(commands.Cog):
         self.ctx = ctx
         self.timer.cancel()
 
-    def dispatch_play_song(self, e):
-        if e is not None:
-            print("Error: ", end="")
-            print(e)
-            return
-        print("dispatched")
-        coro = self.play_song(self.ctx)
-        fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
-        passed = True
-        try:
-            print("fut.result")
-            fut.result()
-        except Exception as e:
-            passed = False
-            print("fail",e)
-            pass
-        if(not passed):
-            try:
-                print("1")
-                coro = self.play_song(self.ctx)
-                fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
-            except:
-                print("2")
-                self.leave(self.ctx)
+    def dispatch_play_song(self, error):
+        if error:
+            print("Player error:", error)
 
+        self.bot.loop.call_soon_threadsafe(
+            lambda: asyncio.create_task(self.play_song(self.ctx))
+        )      
 
+    # def dispatch_play_song(self, e):
+    #     if e is not None:
+    #         print("Error: ", end="")
+    #         print(e)
+    #         return
+    #     print("dispatched")
+    #     coro = self.play_song(self.ctx)
+    #     fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+    #     passed = True
+    #     try:
+    #         print("fut.result")
+    #         fut.result()
+    #     except Exception as e:
+    #         passed = False
+    #         print("fail",e)
+    #         pass
+    #     if(not passed):
+    #         try:
+    #             print("1")
+    #             print(self.current)
+    #             print(self.queue)
+    #             # coro = self.play_song(self.ctx)
+    #             # fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+    #         except:
+    #             print("2")
+    #             self.leave(self.ctx)
 
     def clear_songs(self,passed_ctx):
         # ctx = passed_ctx or self.ctx
@@ -264,12 +299,19 @@ class Music(commands.Cog):
         self.ctx = None
         self.playing = False
 
-
     async def ensure_voice(self, ctx):
         if ctx.voice_client is None:
             if ctx.author.voice:
                 self.voice_channel = await ctx.author.voice.channel.connect()
-                self.clear_songs(ctx)
+                if not self.playing:
+                    self.clear_songs(ctx)
+                self.pause = True
+                self.played = False
+                self.ctx = ctx
+                
+                file = rel_path(f"db{os.sep}bot_intro.mp3")
+                await self.playback(file, ctx)
+
             else:
                 await ctx.send("You are not in a voice channel! <:madge:1009748173717250098>")
                 self.clear_songs(ctx)
@@ -333,7 +375,6 @@ class Music(commands.Cog):
             if(self.voice_channel):
                 print(self.voice_channel.is_connected())
             await ctx.send("Unable to skip <:admiralb:888877774964682772>")
-
     
     @commands.command(pass_context=True)
     async def pop(self, ctx, *args):
@@ -370,7 +411,6 @@ class Music(commands.Cog):
         msg = "You better not have popped gachi <:fatmald:677160470875996171>"
         await ctx.send(msg)
 
-
     @commands.command(pass_context=True)
     async def queue(self, ctx, *args):
         cloned = copy.deepcopy(self.queue)
@@ -406,9 +446,6 @@ class Music(commands.Cog):
         top = parse_list(args, key="skipped")
         for chunk in top:
             await ctx.send(f'```{chunk}```')
-     
-        
-
 
 async def setup(bot):
     await bot.add_cog(Music(bot))

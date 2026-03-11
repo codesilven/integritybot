@@ -38,6 +38,7 @@ class WoW(commands.Cog):
         self.bot = bot
         self.superusers = get_config().superusers
         self.player_messages = {}
+        self.skips = 0
 
         #create player.json
         self.db_path = rel_path("db/player.json")
@@ -87,11 +88,12 @@ class WoW(commands.Cog):
                 "raid_role_id": "",
                 "elv_messages": [],
                 "list_of_people": [],
-                "mask": []
+                "mask": [],
+                "skip_raid": 0
             }
         with open(self.opt_path, "w", encoding="utf-8") as file:
             json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
-
+        self.skips = self.opts["skip_raid"]
 
         #start timer
 
@@ -102,6 +104,7 @@ class WoW(commands.Cog):
         lapse = time_until_raid(self.raid_days,self.raid_hour,self.raid_min)
         self.timer = Timer()
         self.timer.start(lapse, self.raid_message)
+        print(f"Skipping {self.skips} raids")
 
     def ensure_message(self,name):
         if(not name in self.player_messages):
@@ -129,6 +132,12 @@ class WoW(commands.Cog):
             print("Error: no role id to tag! Sending message without tag.")
         else:
             msg += f"\n<@&{self.opts["raid_role_id"]}>"
+
+        if(self.skips > 0):
+            self.skips = self.skips - 1
+            msg = "No raid <:sadkek:677517236638056463>"
+            ## dec skips
+
         await channel.send(msg)
         lapse = time_until_raid(self.raid_days,self.raid_hour,self.raid_min)
         self.timer.start(lapse, self.raid_message)
@@ -179,7 +188,6 @@ class WoW(commands.Cog):
 
     @commands.command(pass_context=True)
     async def last_message(self,ctx, *args):
-    
         if(not str(ctx.message.author.id) in self.superusers):
             await ctx.send("Not allowed :no_entry:")
             return
@@ -196,6 +204,23 @@ class WoW(commands.Cog):
                     pass
         await ctx.send(f'ID: {self.messages[index]["id"]}\nValue: {self.messages[index]["value"]}')
     
+    @commands.command(pass_context=True)
+    async def skip_raid(self,ctx, *args):
+        skips = 1
+        if(args and args[0]):
+            try:
+                skips = int(args[0])
+            except:
+                pass
+        self.skips = self.skips + skips
+        msg = 'Will not send message for the next raid announcement.'
+        if(skips > 0):
+            self.opts["skip_raid"] = skips
+            with open(self.opt_path, "w", encoding="utf-8") as file:
+                json.dump({"data":self.opts}, file, indent=2, ensure_ascii=False)
+            msg = f'Will not send message for the next {skips} raid announcements.'
+        await ctx.send(msg)
+
     @commands.command(pass_context=True)
     async def power(self,ctx,*args):
         verbose = False
@@ -264,10 +289,10 @@ class WoW(commands.Cog):
         if(verbose):
             msg = "```There are exceptions to this rule though - the most common one being Hot Hands or similar specs:\n"
             msg += "Critically striking is not only 280-430% damage, but also is 50% of making your next spell essentially do double damage and cast twice as fast, while reducing cooldown of Combustion - "
-            msg += "even going from 99% to 100% is, although hard to accurately model, somewhere around 1.88% damage, which also show why critical strike is so valuable for the spec.\n"
+            msg += "even going from 99% to 100% is, although hard to accurately model, somewhere around 1.88% damage, which also shows why critical strike is so valuable for the spec.\n"
             msg += "For an even more obscene example, Primordial Fury adds around 10k damage to every critical strike, meaning a Flame Shock that would normally do an initial crit for 4k now effectively critically strikes for 18k, or "
             msg += "effectively 900% damage (!).\n"
-            msg += "The same is also true for healing - despite most heals, such as Healing Wave, only critically striking for 150% healing, the utility of triggering Ancestral Awakening probably outweighs 1% healing is a majority of cases, "
+            msg += "The same is also true for healing - despite most heals, such as Healing Wave, only critically striking for 150% healing, the utility of triggering Ancestral Awakening probably outweighs 1% healing in a majority of cases, "
             msg += "not to mention that Low Tide and Transcendental Embrace benefits from critically healing.\n"
             msg += "There's also talents like Flurry or Nature's Grace, which do not scale linearly with critical strike chance but benefit from it at some level. Furthermore, rage generation is affected by damage done, which means rage gen "
             msg += "output follows roughly the same rules as damage output does."
@@ -279,7 +304,11 @@ class WoW(commands.Cog):
             # await ctx.send(msg)
 
     @commands.command(pass_context=True)
-    async def add(self,ctx, *args):
+    async def add(self,ctx, *, raw_args):
+        args = raw_args.strip().split(' ', 1)
+        if(len(args) < 2 and not(ctx.message.attachments)):
+            await ctx.send("You need to provide at least two parts: a name and a quote.")
+            return
         if(not str(ctx.message.author.id) in self.superusers):
             await ctx.send("Not allowed :no_entry:")
             return
@@ -402,8 +431,12 @@ class WoW(commands.Cog):
             self.ensure_message(name)
             if(self.player_messages[name]["index"] >= len(self.player_messages[name]["messages"]) and len(self.player_messages[name]["messages"]) > 0):
                 random.shuffle(self.player_messages[name]["messages"])
+                max_shuffle = 100
                 while self.player_messages[name]["last_message_id"] == self.player_messages[name]["messages"][0]["id"]:
+                    max_shuffle -= 1
                     random.shuffle(self.player_messages[name]["messages"])
+                    if(max_shuffle < 1):
+                        break
                 self.player_messages[name]["index"] = 0
 
             res = self.player_messages[name]["messages"][self.player_messages[name]["index"]]
@@ -418,6 +451,24 @@ class WoW(commands.Cog):
         
         await ctx.send("You didn't provide a player name you absolute donkey (or it's not implemented yet <:kekw:677506629910134815>)")
         return
+    
+    @commands.command(pass_context=True)
+    async def player_all(self, ctx, arg = None):
+        if not arg or not isinstance(arg, str):
+            await ctx.send("You didn't provide a player name you absolute donkey (or it's not implemented yet <:kekw:677506629910134815>)")
+            return
+        try:
+            name = mask(arg.lower(),self.opts["mask"])
+            self.ensure_message(name)
+            if(len(self.player_messages[name]["messages"]) > 0):
+                messages = [x for x in self.player_messages[name]["messages"]]
+                random.shuffle(messages)
+                for m in messages:
+                    await self.send(ctx,m)
+                return
+        except Exception as e:
+            print(e)
+        await ctx.send("You didn't provide a player name you absolute donkey (or it's not implemented yet <:kekw:677506629910134815>)")
 
     @commands.command(pass_context=True)
     async def peperain(self, ctx):
